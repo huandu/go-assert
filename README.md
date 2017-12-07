@@ -11,15 +11,30 @@ Use `go get` to install this package.
 
     go get -u github.com/huandu/go-assert
 
-## Use it ##
+## Usage ##
 
-Simply use it in a test file.
+Use it in a test file.
 
 ```go
-import . "github.com/huandu/go-assert"
+import "github.com/huandu/go-assert"
 
 func TestSomething(t *testing.T) {
     a, b := 1, 2
-    Assert(t, a > b) // This case fails with "Assertion failed: a > b".
+    assert.Assert(t, a > b)
+    
+    // This case fails with message:
+    //     Assertion failed: a > b
+}
+
+func TestCallAFunction(t *testing.T) {
+    a := assert.New(t)
+
+    f := func(bool, int) (int, string, error) {
+        return 0, "", errors.New("an error")
+    }
+    a.NilError(f(true, 42))
+    
+    // This case fails with message:
+    //     Assertion failed: f(true, 42) returns error "an error".
 }
 ```

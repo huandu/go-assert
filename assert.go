@@ -37,7 +37,7 @@ const (
 //
 //     func TestSomething(t *testing.T) {
 //         a, b := 1, 2
-//         Assert(t, a > b) // This case fails with "Assertion failed: a > b".
+//         Assert(t, a > b) // This case fails with message "Assertion failed: a > b".
 //     }
 func Assert(t *testing.T, expr interface{}) {
 	k := parseFalseKind(expr)
@@ -66,7 +66,7 @@ func New(t *testing.T) *Assertion {
 //     func TestSomething(t *testing.T) {
 //         fa := assert.New(t)
 //         a, b := 1, 2
-//         fa.Assert(t, a > b) // This case fails with "Assertion failed: a > b".
+//         fa.Assert(t, a > b) // This case fails with message "Assertion failed: a > b".
 //     }
 func (t *Assertion) Assert(expr interface{}) {
 	k := parseFalseKind(expr)
@@ -108,7 +108,7 @@ func (t *Assertion) NilError(result ...interface{}) {
 		return
 	}
 
-	t.Fatalf(`Assertion failed: %v returns error "%v"`, s, e)
+	t.Fatalf(`Assertion failed: %v returns error "%v".`, s, e)
 }
 
 func assertion(t *testing.T, k falseKind, name string, argIndex int) {
