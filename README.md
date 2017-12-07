@@ -16,18 +16,24 @@ Use `go get` to install this package.
 Use it in a test file.
 
 ```go
-import "github.com/huandu/go-assert"
+import . "github.com/huandu/go-assert"
 
 func TestSomething(t *testing.T) {
     a, b := 1, 2
-    assert.Assert(t, a > b)
+    Assert(t, a > b)
     
     // This case fails with message:
     //     Assertion failed: a > b
 }
+```
+
+One can wrap `t` in an `Assertion` to validate results returned by a function.
+
+```go
+import "github.com/huandu/go-assert/assertion"
 
 func TestCallAFunction(t *testing.T) {
-    a := assert.New(t)
+    a := assertion.New(t)
 
     f := func(bool, int) (int, string, error) {
         return 0, "", errors.New("an error")

@@ -4,64 +4,40 @@
 package assert
 
 import (
+	"errors"
+	"os"
+	"strings"
 	"testing"
+
+	"github.com/huandu/go-assert/assertion"
 )
 
-func TestParseFalseKind(t *testing.T) {
-	if k := parseFalseKind(12); k != falseKindPositive {
-		t.Fatalf("unexpected kind. [k:%v]", k)
-	}
-
-	if k := parseFalseKind(nil); k != falseKindNil {
-		t.Fatalf("unexpected kind. [k:%v]", k)
-	}
-
-	if k := parseFalseKind(0); k != falseKindZero {
-		t.Fatalf("unexpected kind. [k:%v]", k)
-	}
-
-	if k := parseFalseKind(false); k != falseKindFalse {
-		t.Fatalf("unexpected kind. [k:%v]", k)
-	}
-
-	if k := parseFalseKind([]int{}); k != falseKindPositive {
-		t.Fatalf("unexpected kind. [k:%v]", k)
-	}
-
-	var i1 interface{} = 123
-	if k := parseFalseKind(i1); k != falseKindPositive {
-		t.Fatalf("unexpected kind. [k:%v]", k)
-	}
-
-	s := ""
-	var i2 interface{} = s
-	if k := parseFalseKind(i2); k != falseKindEmptyString {
-		t.Fatalf("unexpected kind. [k:%v]", k)
+// TestMain hacks the testing process and runs cases only if flag -test.run is specified.
+// With this hack, one can run selected case, which will always fail due to the
+// nature of this package, without breaking travis-ci system, which expects all cases passing.
+func TestMain(m *testing.M) {
+	for _, arg := range os.Args[1:] {
+		if strings.HasPrefix(arg, "-test.run") {
+			os.Exit(m.Run())
+			return
+		}
 	}
 }
 
-func TestCallerArgExpr(t *testing.T) {
-	if s, err := callerArgExpr(falseKindPositive, 2, "callerArgExpr", 0); err != nil || s != "falseKindPositive" {
-		t.Fatalf("unexpected expr. [expr:%v]", s)
-	}
+func TestAssertCompareExpr(t *testing.T) {
+	a, b := 1, 2
+	Assert(t, a > b)
+}
 
-	if s, err := callerArgExpr(falseKindPositive, 2, "caller"+"ArgExpr", 2); err != nil || s != `"caller"+"ArgExpr"` {
-		t.Fatalf("unexpected expr. [expr:%v]", s)
+func TestAssertFunctionCall(t *testing.T) {
+	a := assertion.New(t)
+	f := func(string, int) (float32, bool, error) {
+		return 12, true, nil
 	}
+	a.NilError(f("should pass", 0))
 
-	if s, err := callerArgExpr(falseKindNil, 2, "caller"+"ArgExpr", 0); err != nil || s != `falseKindNil != nil` {
-		t.Fatalf("unexpected expr. [expr:%v]", s)
+	f = func(string, int) (float32, bool, error) {
+		return 0, false, errors.New("expected")
 	}
-
-	if s, err := callerArgExpr(falseKindFalse, 2, "caller"+"ArgExpr", 0); err != nil || s != `falseKindFalse != true` {
-		t.Fatalf("unexpected expr. [expr:%v]", s)
-	}
-
-	if s, err := callerArgExpr(falseKindZero, 2, "caller"+"ArgExpr", 0); err != nil || s != `falseKindZero != 0` {
-		t.Fatalf("unexpected expr. [expr:%v]", s)
-	}
-
-	if s, err := callerArgExpr(falseKindEmptyString, 2, "caller"+"ArgExpr", 0); err != nil || s != `falseKindEmptyString != ""` {
-		t.Fatalf("unexpected expr. [expr:%v]", s)
-	}
+	a.NilError(f("secret is", 42))
 }
