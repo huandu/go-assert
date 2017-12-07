@@ -1,6 +1,8 @@
 // Copyright 2017 Huan Du. All rights reserved.
 // Licensed under the MIT license that can be found in the LICENSE file.
 
+// Package assertion is the implementation detail of package assert.
+// One can use API to create a customized assert function with this package
 package assertion
 
 import (
@@ -66,8 +68,8 @@ func (t *Assertion) Assert(expr interface{}) {
 //     import "github.com/huandu/go-assert/assertion"
 //
 //     func TestSomething(t *testing.T) {
-//         tt := assert.New(t)
-//         tt.NilError(os.Open("path/to/a/file")) // This case fails if os.Open returns error.
+//         a := assertion.New(t)
+//         a.NilError(os.Open("path/to/a/file")) // This case fails if os.Open returns error.
 //     }
 func (t *Assertion) NilError(result ...interface{}) {
 	if len(result) == 0 {
