@@ -27,6 +27,17 @@ func TestParseFalseKind(t *testing.T) {
 	if k := parseFalseKind([]int{}); k != falseKindPositive {
 		t.Fatalf("unexpected kind. [k:%v]", k)
 	}
+
+	var i1 interface{} = 123
+	if k := parseFalseKind(i1); k != falseKindPositive {
+		t.Fatalf("unexpected kind. [k:%v]", k)
+	}
+
+	s := ""
+	var i2 interface{} = s
+	if k := parseFalseKind(i2); k != falseKindEmptyString {
+		t.Fatalf("unexpected kind. [k:%v]", k)
+	}
 }
 
 func TestCallerArgExpr(t *testing.T) {

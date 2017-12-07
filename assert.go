@@ -30,6 +30,15 @@ const (
 
 // Assert tests expr and call `t.Fatalf` to terminate test case if expr is false-equivalent value.
 // `false`, 0, nil and empty string are false-equivalent values.
+//
+// Usage:
+//
+//     import . "github.com/huandu/go-assert"
+//
+//     func TestSomething(t *testing.T) {
+//         a, b := 1, 2
+//         Assert(t, a > b) // This case fails with "Assertion failed: a > b".
+//     }
 func Assert(t *testing.T, expr interface{}) {
 	k := parseFalseKind(expr)
 
@@ -38,6 +47,68 @@ func Assert(t *testing.T, expr interface{}) {
 	}
 
 	assertion(t, k, "Assert", 1)
+}
+
+// Assertion implements useful methods to assert expressions or function call.
+type Assertion testing.T
+
+// New returns a T wrapping testing.T.
+func New(t *testing.T) *Assertion {
+	return (*Assertion)(t)
+}
+
+// Assert tests expr and call `t.Fatalf` to terminate test case if expr is false-equivalent value.
+// `false`, 0, nil and empty string are false-equivalent values.
+// Usage:
+//
+//     import . "github.com/huandu/go-assert"
+//
+//     func TestSomething(t *testing.T) {
+//         fa := assert.New(t)
+//         a, b := 1, 2
+//         fa.Assert(t, a > b) // This case fails with "Assertion failed: a > b".
+//     }
+func (t *Assertion) Assert(expr interface{}) {
+	k := parseFalseKind(expr)
+
+	if k == falseKindPositive {
+		return
+	}
+
+	assertion((*testing.T)(t), k, "Assert", 0)
+}
+
+// NilError tests result of returned by a function and terminate test case
+// using `t.Fatalf` if the last parameter is `error` and not nil.
+//
+// Usage:
+//
+//     import . "github.com/huandu/go-assert"
+//
+//     func TestSomething(t *testing.T) {
+//         tt := assert.New(t)
+//         tt.NilError(os.Open("path/to/a/file")) // This case fails if os.Open returns error.
+//     }
+func (t *Assertion) NilError(result ...interface{}) {
+	if len(result) == 0 {
+		return
+	}
+
+	pos := len(result) - 1
+	e := result[pos]
+
+	if ee, ok := e.(error); !ok || ee == nil {
+		return
+	}
+
+	s, err := callerArgExpr(falseKindPositive, 3, "NilError", -1)
+
+	if err != nil {
+		t.Fatalf("Assertion failed. [err:%v]", err)
+		return
+	}
+
+	t.Fatalf(`Assertion failed: %v returns error "%v"`, s, e)
 }
 
 func assertion(t *testing.T, k falseKind, name string, argIndex int) {
@@ -64,26 +135,31 @@ func parseFalseKind(expr interface{}) falseKind {
 
 	v := reflect.ValueOf(expr)
 
-	switch v.Kind() {
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		if n := v.Int(); n == 0 {
-			return falseKindZero
+	for {
+		switch v.Kind() {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			if n := v.Int(); n == 0 {
+				return falseKindZero
+			}
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			if n := v.Uint(); n == 0 {
+				return falseKindZero
+			}
+		case reflect.Float32, reflect.Float64:
+			if n := v.Float(); n == 0 {
+				return falseKindZero
+			}
+		case reflect.String:
+			if s := v.String(); s == "" {
+				return falseKindEmptyString
+			}
+		case reflect.Interface:
+			v = v.Elem()
+			continue
 		}
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		if n := v.Uint(); n == 0 {
-			return falseKindZero
-		}
-	case reflect.Float32, reflect.Float64:
-		if n := v.Float(); n == 0 {
-			return falseKindZero
-		}
-	case reflect.String:
-		if s := v.String(); s == "" {
-			return falseKindEmptyString
-		}
-	}
 
-	return falseKindPositive
+		return falseKindPositive
+	}
 }
 
 // callerArgExpr finds the source code calling assert function and returns the text.
@@ -145,6 +221,10 @@ func callerArgExpr(k falseKind, skip int, name string, argIndex int) (string, er
 
 		if fn != name {
 			return true
+		}
+
+		if argIndex < 0 {
+			argIndex += len(call.Args)
 		}
 
 		if len(call.Args) <= argIndex {
