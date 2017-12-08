@@ -1,6 +1,6 @@
 # Package `assert` - assert macro for Go #
 
-[![Build Status](https://travis-ci.org/huandu/go-assert.png?branch=master)](https://travis-ci.org/huandu/go-assert)
+[![Build Status](https://travis-ci.org/huandu/go-assert.svg?branch=master)](https://travis-ci.org/huandu/go-assert)
 [![GoDoc](https://godoc.org/github.com/huandu/go-assert?status.svg)](https://godoc.org/github.com/huandu/go-assert)
 
 Package `assert` provides developer a way to assert expression and print expression source code in test cases. It works like C macro `assert`.
