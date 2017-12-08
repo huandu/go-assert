@@ -25,6 +25,25 @@ func TestSomething(t *testing.T) {
     // This case fails with message:
     //     Assertion failed: a > b
 }
+
+func TestAssertEquality(t *testing.T) {
+	AssertEqual(t, map[string]int{
+		"foo": 1,
+		"bar": -2,
+	}, map[string]int{
+		"bar": -2,
+		"foo": 10000,
+    })
+    
+    // This case fails with message:
+    //     Assertion failed: map[string]int{
+    //         "foo": 1,
+    //         "bar": -2,
+    //     } != map[string]int{
+    //         "bar": -2,
+    //         "foo": 10000,
+    //     }
+}
 ```
 
 One can wrap `t` in an `Assertion` to validate results returned by a function.

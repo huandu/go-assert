@@ -29,7 +29,7 @@ func TestAssertCompareExpr(t *testing.T) {
 	Assert(t, a > b)
 }
 
-func TestAssertFunctionCall(t *testing.T) {
+func TestAssertNilErrorFunctionCall(t *testing.T) {
 	a := assertion.New(t)
 	f := func(string, int) (float32, bool, error) {
 		return 12, true, nil
@@ -39,5 +39,36 @@ func TestAssertFunctionCall(t *testing.T) {
 	f = func(string, int) (float32, bool, error) {
 		return 0, false, errors.New("expected")
 	}
-	a.NilError(f("secret is", 42))
+	a.NilError(f("should fail", 42))
+}
+
+func TestAssertNonNilErrorFunctionCall(t *testing.T) {
+	a := assertion.New(t)
+	f := func(string, int) (float32, bool, error) {
+		return 12, true, errors.New("should pass")
+	}
+	a.NonNilError(f("should pass", 0))
+
+	f = func(string, int) (float32, bool, error) {
+		return 0, false, nil
+	}
+	a.NonNilError(f("should fail", 42))
+}
+
+func TestAssertEquality(t *testing.T) {
+	AssertEqual(t, map[string]int{
+		"foo": 1,
+		"bar": -2,
+	}, map[string]int{
+		"bar": -2,
+		"foo": 1,
+	})
+
+	AssertEqual(t, map[string]int{
+		"foo": 1,
+		"bar": -2,
+	}, map[string]int{
+		"bar": -2,
+		"foo": 10000,
+	})
 }

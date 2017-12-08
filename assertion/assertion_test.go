@@ -40,28 +40,17 @@ func TestParseFalseKind(t *testing.T) {
 	}
 }
 
-func TestCallerArgExpr(t *testing.T) {
-	if s, err := callerArgExpr(Positive, 2, "callerArgExpr", 0); err != nil || s != "Positive" {
-		t.Fatalf("unexpected expr. [expr:%v]", s)
+func TestParseArgs(t *testing.T) {
+	if args, err := ParseArgs("ParseArgs", 0, 0); err != nil || len(args) != 1 || args[0] != `"ParseArgs"` {
+		t.Fatalf("unexpected expr. [expr:%v]", args[0])
 	}
 
-	if s, err := callerArgExpr(Positive, 2, "caller"+"ArgExpr", 2); err != nil || s != `"caller"+"ArgExpr"` {
-		t.Fatalf("unexpected expr. [expr:%v]", s)
+	if args, err := ParseArgs("Parse"+"Args", 0, 0); err != nil || len(args) != 1 || args[0] != `"Parse"+"Args"` {
+		t.Fatalf("unexpected expr. [expr:%v]", args[0])
 	}
 
-	if s, err := callerArgExpr(Nil, 2, "caller"+"ArgExpr", 0); err != nil || s != `Nil != nil` {
-		t.Fatalf("unexpected expr. [expr:%v]", s)
-	}
-
-	if s, err := callerArgExpr(False, 2, "caller"+"ArgExpr", 0); err != nil || s != `False != true` {
-		t.Fatalf("unexpected expr. [expr:%v]", s)
-	}
-
-	if s, err := callerArgExpr(Zero, 2, "caller"+"ArgExpr", 0); err != nil || s != `Zero != 0` {
-		t.Fatalf("unexpected expr. [expr:%v]", s)
-	}
-
-	if s, err := callerArgExpr(EmptyString, 2, "caller"+"ArgExpr", 0); err != nil || s != `EmptyString != ""` {
-		t.Fatalf("unexpected expr. [expr:%v]", s)
+	if args, err := ParseArgs("Parse"+"Args", 0, -1, 0, -4); err != nil || len(args) != 3 ||
+		args[0] != "-4" || args[1] != `"Parse"+"Args"` || args[2] != "0" {
+		t.Fatalf("unexpected expr. [expr:%v]", args)
 	}
 }

@@ -60,8 +60,8 @@ func (t *Assertion) Assert(expr interface{}) {
 	TriggerAssertion((*testing.T)(t), k, "Assert", 0)
 }
 
-// NilError tests result of returned by a function and terminate test case
-// using `t.Fatalf` if the last parameter is `error` and not nil.
+// NilError expects a function return a nil error.
+// Otherwise, it will terminate the test case using `t.Fatalf`.
 //
 // Usage:
 //
@@ -83,28 +83,81 @@ func (t *Assertion) NilError(result ...interface{}) {
 		return
 	}
 
-	s, err := callerArgExpr(Positive, 3, "NilError", -1)
+	args, err := ParseArgs("NilError", 1, -1)
 
 	if err != nil {
-		t.Fatalf("Assertion failed. [err:%v]", err)
+		t.Fatalf("Assertion failed with an internal error: %v", err)
 		return
 	}
 
-	t.Fatalf(`Assertion failed: %v returns error "%v".`, s, e)
+	t.Fatalf(`Assertion failed: %v returns error "%v".`, args[0], e)
+}
+
+// NonNilError expects a function return a non-nil error.
+// Otherwise, it will terminate the test case using `t.Fatalf`.
+//
+// Usage:
+//
+//     import "github.com/huandu/go-assert/assertion"
+//
+//     func TestSomething(t *testing.T) {
+//         a := assertion.New(t)
+//         f := func() (int, error) { return 0, errors.New("expected") }
+//         a.NilError(f()) // This case fails.
+//     }
+func (t *Assertion) NonNilError(result ...interface{}) {
+	if len(result) == 0 {
+		return
+	}
+
+	pos := len(result) - 1
+	e := result[pos]
+
+	if e != nil {
+		if _, ok := e.(error); !ok {
+			return
+		}
+
+		if v := reflect.ValueOf(e); !v.IsNil() {
+			return
+		}
+	}
+
+	args, err := ParseArgs("NonNilError", 1, -1)
+
+	if err != nil {
+		t.Fatalf("Assertion failed with an internal error: %v", err)
+		return
+	}
+
+	t.Fatalf(`Assertion failed: expect %v returns an error.`, args[0])
 }
 
 // TriggerAssertion calls t.Fatalf to terminate a test case.
 // It must be called by an assert function which will be directly used in test cases.
 // See code in `Assertion#Assert` as a sample.
 func TriggerAssertion(t *testing.T, k FalseKind, name string, argIndex int) {
-	s, err := callerArgExpr(k, 4, name, argIndex)
+	args, err := ParseArgs(name, 2, argIndex)
 
 	if err != nil {
 		t.Fatalf("Assertion failed. [err:%v]", err)
 		return
 	}
 
-	t.Fatalf("Assertion failed: %v", s)
+	suffix := ""
+
+	switch k {
+	case Nil:
+		suffix = " != nil"
+	case False:
+		suffix = " != true"
+	case Zero:
+		suffix = " != 0"
+	case EmptyString:
+		suffix = ` != ""`
+	}
+
+	t.Fatalf("Assertion failed: %v%v", args[0], suffix)
 }
 
 // ParseFalseKind checks expr value and return false when expr is `false`, 0, `nil` and empty string.
@@ -147,13 +200,24 @@ func ParseFalseKind(expr interface{}) FalseKind {
 	}
 }
 
-// callerArgExpr finds the source code calling assert function and returns the text.
-func callerArgExpr(k FalseKind, skip int, name string, argIndex int) (string, error) {
+// ParseArgs parses caller's source code, finds out the right call expression by name
+// and returns the argument source code.
+//
+// Skip is the stack frame calling an assert function. If skip is 0, the stack frame for
+// ParseArgs is selected.
+// In most cases, caller should set skip to 1 to skip ParseArgs itself.
+func ParseArgs(name string, skip int, argIndex ...int) ([]string, error) {
+	if len(argIndex) == 0 {
+		return []string{}, nil
+	}
+
+	const minimumSkip = 2 // Skip 2 frames running runtime functions.
+
 	pc := make([]uintptr, 1)
-	n := runtime.Callers(skip, pc)
+	n := runtime.Callers(skip+minimumSkip, pc)
 
 	if n == 0 {
-		return "", fmt.Errorf("fail to read call stack")
+		return nil, fmt.Errorf("fail to read call stack")
 	}
 
 	pc = pc[:n]
@@ -161,7 +225,6 @@ func callerArgExpr(k FalseKind, skip int, name string, argIndex int) (string, er
 
 	var frame runtime.Frame
 	var err error
-	result := &bytes.Buffer{}
 	done := false
 
 	frame, _ = frames.Next()
@@ -169,7 +232,7 @@ func callerArgExpr(k FalseKind, skip int, name string, argIndex int) (string, er
 	line := frame.Line
 
 	if filename == "" || line == 0 {
-		return "", fmt.Errorf("fail to read source code information")
+		return nil, fmt.Errorf("fail to read source code information")
 	}
 
 	dotIdx := strings.LastIndex(name, ".")
@@ -183,7 +246,16 @@ func callerArgExpr(k FalseKind, skip int, name string, argIndex int) (string, er
 	src, parsedAst, err := parseFile(fset, filename)
 
 	if err != nil {
-		return "", err
+		return nil, err
+	}
+
+	result := make([]string, len(argIndex))
+	maxArgIdx := 0
+
+	for _, idx := range argIndex {
+		if idx > maxArgIdx {
+			maxArgIdx = idx
+		}
 	}
 
 	ast.Inspect(parsedAst, func(node ast.Node) bool {
@@ -208,49 +280,32 @@ func callerArgExpr(k FalseKind, skip int, name string, argIndex int) (string, er
 			return true
 		}
 
-		if argIndex < 0 {
-			argIndex += len(call.Args)
-		}
-
-		if len(call.Args) <= argIndex {
-			return true
-		}
-
-		arg := call.Args[argIndex]
-
-		pos := fset.Position(arg.Pos())
-		posEnd := fset.Position(arg.End())
+		pos := fset.Position(call.Pos())
+		posEnd := fset.Position(call.End())
 
 		if line < pos.Line || line > posEnd.Line {
 			return true
 		}
 
-		result.Write(src[arg.Pos()-1 : arg.End()-1])
-
-		if _, ok := arg.(*ast.Ident); ok {
-			switch k {
-			case Nil:
-				result.WriteString(" != nil")
-			case False:
-				result.WriteString(" != true")
-			case Zero:
-				result.WriteString(" != 0")
-			case EmptyString:
-				result.WriteString(` != ""`)
+		for i, idx := range argIndex {
+			if idx < 0 {
+				idx += len(call.Args)
 			}
+
+			if idx < 0 || idx >= len(call.Args) {
+				// Ignore invalid idx.
+				continue
+			}
+
+			arg := call.Args[idx]
+			result[i] = string(src[arg.Pos()-1 : arg.End()-1])
 		}
 
 		done = true
 		return false
 	})
 
-	s := result.String()
-
-	if s == "" {
-		s = "<EMPTY>"
-	}
-
-	return s, err
+	return result, err
 }
 
 func parseFile(fset *token.FileSet, filename string) ([]byte, *ast.File, error) {
