@@ -27,12 +27,12 @@ func TestSomething(t *testing.T) {
 }
 
 func TestAssertEquality(t *testing.T) {
-	AssertEqual(t, map[string]int{
-		"foo": 1,
-		"bar": -2,
-	}, map[string]int{
-		"bar": -2,
-		"foo": 10000,
+    AssertEqual(t, map[string]int{
+        "foo": 1,
+        "bar": -2,
+    }, map[string]int{
+        "bar": -2,
+        "foo": 10000,
     })
     
     // This case fails with message:
