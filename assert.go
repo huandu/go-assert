@@ -29,7 +29,7 @@ func Assert(t *testing.T, expr interface{}) {
 		return
 	}
 
-	assertion.TriggerAssertion(t, k, "Assert", 1)
+	assertion.TriggerAssert(t, "Assert", 1, k)
 }
 
 // AssertEqual uses `reflect.DeepEqual` to test v1 and v2 equality.
@@ -42,7 +42,9 @@ func Assert(t *testing.T, expr interface{}) {
 //         AssertEqual(t, []int{1,2}, []int{1})
 //
 //         // This case fails with message:
-//         //     Assertion failed: []int{1,2} != []int{1}
+//         //     Assertion failed: []int{1,2} == []int{1}
+//         //         v1 = [1,2]
+//         //         v2 = [1]
 //     }
 func AssertEqual(t *testing.T, v1, v2 interface{}) {
 	typeMismatch := false
@@ -57,7 +59,7 @@ func AssertEqual(t *testing.T, v1, v2 interface{}) {
 		return
 	}
 
-	args, err := assertion.ParseArgs("AssertEqual", 1, 1, 2)
+	args, filename, line, err := assertion.ParseArgs("AssertEqual", 1, 1, 2)
 
 	if err != nil {
 		t.Fatalf("Assertion failed with an internal error: %v", err)
@@ -65,8 +67,37 @@ func AssertEqual(t *testing.T, v1, v2 interface{}) {
 	}
 
 	if typeMismatch {
-		t.Fatalf("Assertion failed: %v and %v type mismatch.", args[0], args[1])
+		t.Fatalf("\n%v:%v: Assertion failed: type of %v and %v should be the same.\n\tv1 = %v (type %[5]T)\n\tv2 = %v (type %[6]T)",
+			filename, line, args[0], args[1], v1, v2)
 	} else {
-		t.Fatalf("Assertion failed: %v != %v", args[0], args[1])
+		t.Fatalf("\n%v:%v: Assertion failed: %v == %v\n\tv1 = %v\n\tv2 = %v",
+			filename, line, args[0], args[1], v1, v2)
 	}
+}
+
+// AssertNotEqual uses `reflect.DeepEqual` to test v1 and v2 equality.
+//
+// Usage:
+//
+//     import . "github.com/huandu/go-assert"
+//
+//     func TestSomething(t *testing.T) {
+//         AssertNotEqual(t, []int{1}, []int{1})
+//
+//         // This case fails with message:
+//         //     Assertion failed: []int{1} != []int{1}
+//     }
+func AssertNotEqual(t *testing.T, v1, v2 interface{}) {
+	if !reflect.DeepEqual(v1, v2) {
+		return
+	}
+
+	args, filename, line, err := assertion.ParseArgs("AssertNotEqual", 1, 1, 2)
+
+	if err != nil {
+		t.Fatalf("Assertion failed with an internal error: %v", err)
+		return
+	}
+
+	t.Fatalf("\n%v:%v: Assertion failed: %v != %v", filename, line, args[0], args[1])
 }

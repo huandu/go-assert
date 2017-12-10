@@ -29,6 +29,11 @@ func TestAssertCompareExpr(t *testing.T) {
 	Assert(t, a > b)
 }
 
+func TestAssertIdent(t *testing.T) {
+	a := 0
+	Assert(t, a)
+}
+
 func TestAssertNilErrorFunctionCall(t *testing.T) {
 	a := assertion.New(t)
 	f := func(string, int) (float32, bool, error) {
@@ -71,4 +76,89 @@ func TestAssertEquality(t *testing.T) {
 		"bar": -2,
 		"foo": 10000,
 	})
+}
+
+func TestAssertEqualityTypeMismatch(t *testing.T) {
+	v1 := struct {
+		Foo string
+		Bar int
+	}{"should pass", 1}
+	v2 := struct {
+		Foo string
+		Bar int
+	}{"should pass", 1}
+	AssertEqual(t, v1, v2)
+
+	v3 := []int{1, 2, 3}
+	v4 := []int64{1, 2, 3}
+	AssertEqual(t, v3, v4)
+}
+
+func TestAssertEqualityWithAssertion(t *testing.T) {
+	a := assertion.New(t)
+	a.Equal(map[string]int{
+		"foo": 1,
+		"bar": -2,
+	}, map[string]int{
+		"bar": -2,
+		"foo": 1,
+	})
+
+	a.Equal(map[string]int{
+		"foo": 1,
+		"bar": -2,
+	}, map[string]int{
+		"bar": -2,
+		"foo": 10000,
+	})
+}
+
+func TestAssertEqualityTypeMismatchWithAssertion(t *testing.T) {
+	a := assertion.New(t)
+	v1 := struct {
+		Foo string
+		Bar int
+	}{"should pass", 1}
+	v2 := struct {
+		Foo string
+		Bar int
+	}{"should pass", 1}
+	a.Equal(v1, v2)
+
+	v3 := []int{1, 2, 3}
+	v4 := []int64{1, 2, 3}
+	a.Equal(v3, v4)
+}
+
+func TestAssertNotEqual(t *testing.T) {
+	v1 := struct {
+		Foo string
+		Bar int
+	}{"should pass", 1}
+	v2 := struct {
+		Bar int
+		Foo string
+	}{1, "should pass"}
+	AssertNotEqual(t, v1, v2)
+
+	v3 := []int{1, 2, 3}
+	v4 := []int{1, 2, 3}
+	AssertNotEqual(t, v3, v4)
+}
+
+func TestAssertNotEqualWithAssertion(t *testing.T) {
+	a := assertion.New(t)
+	v1 := struct {
+		Foo string
+		Bar int
+	}{"should pass", 1}
+	v2 := struct {
+		Bar int
+		Foo string
+	}{1, "should pass"}
+	a.NotEqual(v1, v2)
+
+	v3 := []int{1, 2, 3}
+	v4 := []int{1, 2, 3}
+	a.NotEqual(v3, v4)
 }
