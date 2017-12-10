@@ -41,16 +41,16 @@ func TestParseFalseKind(t *testing.T) {
 }
 
 func TestParseArgs(t *testing.T) {
-	if args, err := ParseArgs("ParseArgs", 0, 0); err != nil || len(args) != 1 || args[0] != `"ParseArgs"` {
+	if args, filename, _, err := ParseArgs("ParseArgs", 0, 0); err != nil || len(args) != 1 || args[0] != `"ParseArgs"` || filename != "assertion_test.go" {
 		t.Fatalf("unexpected expr. [expr:%v]", args[0])
 	}
 
-	if args, err := ParseArgs("Parse"+"Args", 0, 0); err != nil || len(args) != 1 || args[0] != `"Parse"+"Args"` {
+	if args, filename, _, err := ParseArgs("Parse"+"Args", 0, 0); err != nil || len(args) != 1 || args[0] != `"Parse"+"Args"` || filename != "assertion_test.go" {
 		t.Fatalf("unexpected expr. [expr:%v]", args[0])
 	}
 
-	if args, err := ParseArgs("Parse"+"Args", 0, -1, 0, -4); err != nil || len(args) != 3 ||
-		args[0] != "-4" || args[1] != `"Parse"+"Args"` || args[2] != "0" {
+	if args, filename, _, err := ParseArgs("Parse"+"Args", 0, -1, 0, -4); err != nil || len(args) != 3 ||
+		args[0] != "-4" || args[1] != `"Parse"+"Args"` || args[2] != "0" || filename != "assertion_test.go" {
 		t.Fatalf("unexpected expr. [expr:%v]", args)
 	}
 }

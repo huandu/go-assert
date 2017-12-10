@@ -9,13 +9,13 @@ Without this package, developers must use negative logic to test expressions and
 
 ```go
 func TestSomething(t *testing.T) {
-    _, err := os.Open("some.file")
+    str := "actual"
 
-    // We want `err` to be nil, but we have to negative logic to check it.
+    // We want `str` to be "expected", but we have to negative logic to check it.
     // Obviously, it's not straight forward.
-    if err != nil {
+    if str != "expected" {
         // We have to write some messages to let us know what's called and why it fails.
-        t.Fatalf("fail to open file. err is %v.", err)
+        t.Fatalf("invalid str. [str:%v] [expected:%v]", str, "expected")
     }
 }
 ```
@@ -23,16 +23,15 @@ func TestSomething(t *testing.T) {
 With this package, we can significantly simplify test code which works similar as above.
 
 ```go
-import "github.com/huandu/go-assert/assertion"
+import . "github.com/huandu/go-assert"
 
 func TestSomething(t *testing.T) {
-    assert := assertion.New(t)
-    assert.NilError(os.Open("some.file"))
+    str := "actual"
+    Assert(str == "expected")
 
-    // If os.Open("some.file") fails, output following message.
+    // This case fails with following message.
     //
-    //     Assertion failed: os.Open("some.file") should return nil error.
-    //         err = no such file or directory
+    //     Assertion failed: str == "expected"
 }
 ```
 
