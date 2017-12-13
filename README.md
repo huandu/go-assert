@@ -3,16 +3,18 @@
 [![Build Status](https://travis-ci.org/huandu/go-assert.svg?branch=master)](https://travis-ci.org/huandu/go-assert)
 [![GoDoc](https://godoc.org/github.com/huandu/go-assert?status.svg)](https://godoc.org/github.com/huandu/go-assert)
 
-Package `assert` provides developer a way to assert expression and print expression source code in test cases. It works like C macro `assert`.
+Package `assert` provides developer a way to assert expression and print expression source code in test cases. It works like C macro `assert`. When assertion fails, source code of the expression in assert function is printed.
 
-Without this package, developers must use negative logic to test expressions and call `t.Fatalf` to print meaningful failure message for debugging. Just like following.
+For example, if we write `Assert(t, a > b)` when `a = 1` and `b = 2`, we can read `Assertion failed: a > b` in the failure message. The `a > b` is the expression evaluated in `Assert`.
+
+Without this package, developers must use negate logic to test expressions and call `t.Fatalf` to print meaningful failure message for debugging. Just like following.
 
 ```go
 func TestSomething(t *testing.T) {
     str := "actual"
 
-    // We want `str` to be "expected", but we have to negative logic to check it.
-    // Obviously, it's not straight forward.
+    // We expect `str` to be "expected". To verify it, we need to use negate logic.
+    // It's not straight forward.
     if str != "expected" {
         // We have to write some messages to let us know what's called and why it fails.
         t.Fatalf("invalid str. [str:%v] [expected:%v]", str, "expected")
@@ -27,11 +29,20 @@ import . "github.com/huandu/go-assert"
 
 func TestSomething(t *testing.T) {
     str := "actual"
-    Assert(str == "expected")
+    Assert(t, str == "expected")
 
     // This case fails with following message.
     //
     //     Assertion failed: str == "expected"
+    
+    // If we're aware of the value of str, use AssertEqual.
+    AssertEqual(t, str, "expected")
+    
+    // This case fails with following message.
+    //
+    //     Assertion failed: str == "expected"
+    //         v1 = actual
+    //         v2 = expected
 }
 ```
 
