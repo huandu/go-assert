@@ -91,7 +91,7 @@ func (t *Assertion) NilError(result ...interface{}) {
 		return
 	}
 
-	t.Fatalf("\n%v:%v: Assertion failed: %v should return nil error\n\t err =%v",
+	t.Fatalf("\n%v:%v: Assertion failed: %v should return nil error\n\t err = %v",
 		filename, line, args[0], e)
 }
 
