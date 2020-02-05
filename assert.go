@@ -5,10 +5,9 @@
 package assert
 
 import (
-	"reflect"
 	"testing"
 
-	"github.com/huandu/go-assert/assertion"
+	"github.com/huandu/go-assert/internal/assertion"
 )
 
 // Assert tests expr and call `t.Fatalf` to terminate test case if expr is false-equivalent value.
@@ -23,13 +22,11 @@ import (
 //         Assert(t, a > b) // This case fails with message "Assertion failed: a > b".
 //     }
 func Assert(t *testing.T, expr interface{}) {
-	k := assertion.ParseFalseKind(expr)
-
-	if k == assertion.Positive {
-		return
-	}
-
-	assertion.TriggerAssert(t, "Assert", 1, k)
+	assertion.Assert(t, expr, &assertion.Trigger{
+		FuncName: "Assert",
+		Skip:     1,
+		Args:     []int{1},
+	})
 }
 
 // AssertEqual uses `reflect.DeepEqual` to test v1 and v2 equality.
@@ -47,32 +44,11 @@ func Assert(t *testing.T, expr interface{}) {
 //         //         v2 = [1]
 //     }
 func AssertEqual(t *testing.T, v1, v2 interface{}) {
-	typeMismatch := false
-	t1 := reflect.TypeOf(v1)
-	t2 := reflect.TypeOf(v2)
-
-	if !t1.AssignableTo(t2) && !t2.AssignableTo(t1) {
-		typeMismatch = true
-	}
-
-	if reflect.DeepEqual(v1, v2) {
-		return
-	}
-
-	args, filename, line, err := assertion.ParseArgs("AssertEqual", 1, 1, 2)
-
-	if err != nil {
-		t.Fatalf("Assertion failed with an internal error: %v", err)
-		return
-	}
-
-	if typeMismatch {
-		t.Fatalf("\n%v:%v: Assertion failed: type of %v and %v should be the same.\n\tv1 = %v (type %[5]T)\n\tv2 = %v (type %[6]T)",
-			filename, line, args[0], args[1], v1, v2)
-	} else {
-		t.Fatalf("\n%v:%v: Assertion failed: %v == %v\n\tv1 = %v\n\tv2 = %v",
-			filename, line, args[0], args[1], v1, v2)
-	}
+	assertion.AssertEqual(t, v1, v2, &assertion.Trigger{
+		FuncName: "AssertEqual",
+		Skip:     1,
+		Args:     []int{1, 2},
+	})
 }
 
 // AssertNotEqual uses `reflect.DeepEqual` to test v1 and v2 equality.
@@ -88,16 +64,9 @@ func AssertEqual(t *testing.T, v1, v2 interface{}) {
 //         //     Assertion failed: []int{1} != []int{1}
 //     }
 func AssertNotEqual(t *testing.T, v1, v2 interface{}) {
-	if !reflect.DeepEqual(v1, v2) {
-		return
-	}
-
-	args, filename, line, err := assertion.ParseArgs("AssertNotEqual", 1, 1, 2)
-
-	if err != nil {
-		t.Fatalf("Assertion failed with an internal error: %v", err)
-		return
-	}
-
-	t.Fatalf("\n%v:%v: Assertion failed: %v != %v", filename, line, args[0], args[1])
+	assertion.AssertNotEqual(t, v1, v2, &assertion.Trigger{
+		FuncName: "AssertNotEqual",
+		Skip:     1,
+		Args:     []int{1, 2},
+	})
 }

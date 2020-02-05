@@ -32,47 +32,95 @@ const (
 	EmptyString
 )
 
-// Assertion implements useful methods to assert expressions or function call.
-type Assertion testing.T
-
-// New returns a T wrapping testing.T.
-func New(t *testing.T) *Assertion {
-	return (*Assertion)(t)
+// Trigger represents the method which triggers assertion.
+type Trigger struct {
+	FuncName string
+	Skip     int
+	Args     []int
 }
 
 // Assert tests expr and call `t.Fatalf` to terminate test case if expr is false-equivalent value.
-// `false`, 0, nil and empty string are false-equivalent values.
-// Usage:
-//
-//     import "github.com/huandu/go-assert/assertion"
-//
-//     func TestSomething(t *testing.T) {
-//         fa := assertion.New(t)
-//         a, b := 1, 2
-//         fa.Assert(t, a > b) // This case fails with message "Assertion failed: a > b".
-//     }
-func (t *Assertion) Assert(expr interface{}) {
+func Assert(t *testing.T, expr interface{}, trigger *Trigger) {
 	k := ParseFalseKind(expr)
 
 	if k == Positive {
 		return
 	}
 
-	TriggerAssert((*testing.T)(t), "Assert", 0, k)
+	TriggerAssert(t, trigger.FuncName, trigger.Skip+1, trigger.Args, k)
 }
 
-// NilError expects a function return a nil error.
+// AssertEqual uses `reflect.DeepEqual` to test v1 and v2 equality.
+func AssertEqual(t *testing.T, v1, v2 interface{}, trigger *Trigger) {
+	if reflect.DeepEqual(v1, v2) {
+		return
+	}
+
+	typeMismatch := false
+
+	if v1 != nil && v2 != nil {
+		t1 := reflect.TypeOf(v1)
+		t2 := reflect.TypeOf(v2)
+
+		if !t1.AssignableTo(t2) && !t2.AssignableTo(t1) {
+			typeMismatch = true
+		}
+	} else {
+		v1Val := reflect.ValueOf(v1)
+		v2Val := reflect.ValueOf(v2)
+
+		// Treat (*T)(nil) as nil.
+		if isNil(v1Val) && isNil(v2Val) {
+			return
+		}
+	}
+
+	args, filename, line, err := ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
+
+	if err != nil {
+		t.Fatalf("Assertion failed with an internal error: %v", err)
+		return
+	}
+
+	if typeMismatch {
+		t.Fatalf("\n%v:%v: Assertion failed: type of %v and %v should be the same.\n\tv1 = %v (type %[5]T)\n\tv2 = %v (type %[6]T)",
+			filename, line, args[0], args[1], v1, v2)
+	} else {
+		t.Fatalf("\n%v:%v: Assertion failed: %v == %v\n\tv1 = %v (type %[5]T)\n\tv2 = %v (type %[6]T)",
+			filename, line, args[0], args[1], v1, v2)
+	}
+}
+
+func isNil(val reflect.Value) bool {
+	switch val.Kind() {
+	case reflect.Invalid:
+		return true
+	case reflect.Interface, reflect.Chan, reflect.Func, reflect.Slice, reflect.Map, reflect.Ptr:
+		return val.IsNil()
+	}
+
+	return false
+}
+
+// AssertNotEqual uses `reflect.DeepEqual` to test v1 and v2 equality.
+func AssertNotEqual(t *testing.T, v1, v2 interface{}, trigger *Trigger) {
+	if !reflect.DeepEqual(v1, v2) {
+		return
+	}
+
+	args, filename, line, err := ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
+
+	if err != nil {
+		t.Fatalf("Assertion failed with an internal error: %v", err)
+		return
+	}
+
+	t.Fatalf("\n%v:%v: Assertion failed: %v != %v", filename, line, args[0], args[1])
+}
+
+// AssertNilError expects a function return a nil error.
 // Otherwise, it will terminate the test case using `t.Fatalf`.
-//
-// Usage:
-//
-//     import "github.com/huandu/go-assert/assertion"
-//
-//     func TestSomething(t *testing.T) {
-//         a := assertion.New(t)
-//         a.NilError(os.Open("path/to/a/file")) // This case fails if os.Open returns error.
-//     }
-func (t *Assertion) NilError(result ...interface{}) {
+func AssertNilError(t *testing.T, result []interface{}, trigger *Trigger) {
 	if len(result) == 0 {
 		return
 	}
@@ -84,7 +132,7 @@ func (t *Assertion) NilError(result ...interface{}) {
 		return
 	}
 
-	args, filename, line, err := ParseArgs("NilError", 1, -1)
+	args, filename, line, err := ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
 
 	if err != nil {
 		t.Fatalf("Assertion failed with an internal error: %v", err)
@@ -95,19 +143,9 @@ func (t *Assertion) NilError(result ...interface{}) {
 		filename, line, args[0], e)
 }
 
-// NonNilError expects a function return a non-nil error.
+// AssertNonNilError expects a function return a non-nil error.
 // Otherwise, it will terminate the test case using `t.Fatalf`.
-//
-// Usage:
-//
-//     import "github.com/huandu/go-assert/assertion"
-//
-//     func TestSomething(t *testing.T) {
-//         a := assertion.New(t)
-//         f := func() (int, error) { return 0, errors.New("expected") }
-//         a.NilError(f()) // This case fails.
-//     }
-func (t *Assertion) NonNilError(result ...interface{}) {
+func AssertNonNilError(t *testing.T, result []interface{}, trigger *Trigger) {
 	if len(result) == 0 {
 		return
 	}
@@ -125,7 +163,7 @@ func (t *Assertion) NonNilError(result ...interface{}) {
 		}
 	}
 
-	args, filename, line, err := ParseArgs("NonNilError", 1, -1)
+	args, filename, line, err := ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
 
 	if err != nil {
 		t.Fatalf("Assertion failed with an internal error: %v", err)
@@ -135,86 +173,11 @@ func (t *Assertion) NonNilError(result ...interface{}) {
 	t.Fatalf("\n%v:%v: Assertion failed: expect %v returns an error.", filename, line, args[0])
 }
 
-// Equal uses `reflect.DeepEqual` to test v1 and v2 equality.
-//
-// Usage:
-//
-//     import "github.com/huandu/go-assert/assertion"
-//
-//     func TestSomething(t *testing.T) {
-//         a := assertion.New(t)
-//         a.Equal([]int{1,2}, []int{1})
-//
-//         // This case fails with message:
-//         //     Assertion failed: []int{1,2} == []int{1}
-//         //         v1 = [1 2]
-//         //         v2 = [1]
-//     }
-func (t *Assertion) Equal(v1, v2 interface{}) {
-	if v1 == v2 || reflect.DeepEqual(v1, v2) {
-		return
-	}
-
-	typeMismatch := false
-
-	if v1 != nil && v2 != nil {
-		t1 := reflect.TypeOf(v1)
-		t2 := reflect.TypeOf(v2)
-
-		if !t1.AssignableTo(t2) && !t2.AssignableTo(t1) {
-			typeMismatch = true
-		}
-	}
-
-	args, filename, line, err := ParseArgs("Equal", 1, 0, 1)
-
-	if err != nil {
-		t.Fatalf("Assertion failed with an internal error: %v", err)
-		return
-	}
-
-	if typeMismatch {
-		t.Fatalf("\n%v:%v: Assertion failed: type of %v and %v should be the same.\n\tv1 = %v (type %[5]T)\n\tv2 = %v (type %[6]T)",
-			filename, line, args[0], args[1], v1, v2)
-	} else {
-		t.Fatalf("\n%v:%v: Assertion failed: %v == %v\n\tv1 = %v\n\tv2 = %v",
-			filename, line, args[0], args[1], v1, v2)
-	}
-}
-
-// NotEqual uses `reflect.DeepEqual` to test v1 and v2 equality.
-//
-// Usage:
-//
-//     import "github.com/huandu/go-assert/assetion"
-//
-//     func TestSomething(t *testing.T) {
-//         a := assertion.New(t)
-//         a.NotEqual(t, []int{1}, []int{1})
-//
-//         // This case fails with message:
-//         //     Assertion failed: []int{1} != []int{1}
-//     }
-func (t *Assertion) NotEqual(v1, v2 interface{}) {
-	if !reflect.DeepEqual(v1, v2) {
-		return
-	}
-
-	args, filename, line, err := ParseArgs("NotEqual", 1, 0, 1)
-
-	if err != nil {
-		t.Fatalf("Assertion failed with an internal error: %v", err)
-		return
-	}
-
-	t.Fatalf("\n%v:%v: Assertion failed: %v != %v", filename, line, args[0], args[1])
-}
-
 // TriggerAssert calls t.Fatalf to terminate a test case.
 // It must be called by an assert function which will be directly used in test cases.
 // See code in `Assertion#Assert` as a sample.
-func TriggerAssert(t *testing.T, name string, argIndex int, k FalseKind) {
-	args, filename, line, err := ParseArgs(name, 2, argIndex)
+func TriggerAssert(t *testing.T, name string, skip int, argIndex []int, k FalseKind) {
+	args, filename, line, err := ParseArgs(name, skip, argIndex)
 
 	if err != nil {
 		t.Fatalf("Assertion failed with an internal error: %v", err)
@@ -286,7 +249,7 @@ func ParseFalseKind(expr interface{}) FalseKind {
 // Skip is the stack frame calling an assert function. If skip is 0, the stack frame for
 // ParseArgs is selected.
 // In most cases, caller should set skip to 1 to skip ParseArgs itself.
-func ParseArgs(name string, skip int, argIndex ...int) (args []string, filename string, line int, err error) {
+func ParseArgs(name string, skip int, argIndex []int) (args []string, filename string, line int, err error) {
 	if len(argIndex) == 0 {
 		err = fmt.Errorf("missing argIndex")
 		return

@@ -46,11 +46,13 @@ func TestSomething(t *testing.T) {
 }
 ```
 
-## Install ##
+## Import ##
 
 Use `go get` to install this package.
 
-    go get -u github.com/huandu/go-assert
+    go get github.com/huandu/go-assert
+
+Current stable version is `v1.*`. Old versions tagged by `v0.*` are obsoleted.
 
 ## Usage ##
 
@@ -89,13 +91,13 @@ func TestAssertEquality(t *testing.T) {
 }
 ```
 
-One can wrap `t` in an `Assertion` to validate results returned by a function.
+We can wrap `t` in an `Assertion` to validate results returned by a function.
 
 ```go
-import "github.com/huandu/go-assert/assertion"
+import "github.com/huandu/go-assert"
 
 func TestCallAFunction(t *testing.T) {
-    a := assertion.New(t)
+    a := assert.New(t)
 
     f := func(bool, int) (int, string, error) {
         return 0, "", errors.New("an error")

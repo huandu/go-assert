@@ -8,13 +8,11 @@ import (
 	"os"
 	"strings"
 	"testing"
-
-	"github.com/huandu/go-assert/assertion"
 )
 
 // TestMain hacks the testing process and runs cases only if flag -test.run is specified.
-// With this hack, one can run selected case, which will always fail due to the
-// nature of this package, without breaking travis-ci system, which expects all cases passing.
+// Due to the nature of this package, all "successful" cases will always fail.
+// With this hack, we can run selected case manually without breaking travis-ci system.
 func TestMain(m *testing.M) {
 	for _, arg := range os.Args[1:] {
 		if strings.HasPrefix(arg, "-test.run") {
@@ -35,7 +33,7 @@ func TestAssertIdent(t *testing.T) {
 }
 
 func TestAssertNilErrorFunctionCall(t *testing.T) {
-	a := assertion.New(t)
+	a := New(t)
 	f := func(string, int) (float32, bool, error) {
 		return 12, true, nil
 	}
@@ -48,7 +46,7 @@ func TestAssertNilErrorFunctionCall(t *testing.T) {
 }
 
 func TestAssertNonNilErrorFunctionCall(t *testing.T) {
-	a := assertion.New(t)
+	a := New(t)
 	f := func(string, int) (float32, bool, error) {
 		return 12, true, errors.New("should pass")
 	}
@@ -95,7 +93,7 @@ func TestAssertEqualityTypeMismatch(t *testing.T) {
 }
 
 func TestAssertEqualityWithAssertion(t *testing.T) {
-	a := assertion.New(t)
+	a := New(t)
 	a.Equal(map[string]int{
 		"foo": 1,
 		"bar": -2,
@@ -114,7 +112,7 @@ func TestAssertEqualityWithAssertion(t *testing.T) {
 }
 
 func TestAssertEqualityTypeMismatchWithAssertion(t *testing.T) {
-	a := assertion.New(t)
+	a := New(t)
 	v1 := struct {
 		Foo string
 		Bar int
@@ -147,7 +145,7 @@ func TestAssertNotEqual(t *testing.T) {
 }
 
 func TestAssertNotEqualWithAssertion(t *testing.T) {
-	a := assertion.New(t)
+	a := New(t)
 	v1 := struct {
 		Foo string
 		Bar int
