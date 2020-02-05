@@ -151,16 +151,19 @@ func (t *Assertion) NonNilError(result ...interface{}) {
 //         //         v2 = [1]
 //     }
 func (t *Assertion) Equal(v1, v2 interface{}) {
-	typeMismatch := false
-	t1 := reflect.TypeOf(v1)
-	t2 := reflect.TypeOf(v2)
-
-	if !t1.AssignableTo(t2) && !t2.AssignableTo(t1) {
-		typeMismatch = true
+	if v1 == v2 || reflect.DeepEqual(v1, v2) {
+		return
 	}
 
-	if reflect.DeepEqual(v1, v2) {
-		return
+	typeMismatch := false
+
+	if v1 != nil && v2 != nil {
+		t1 := reflect.TypeOf(v1)
+		t2 := reflect.TypeOf(v2)
+
+		if !t1.AssignableTo(t2) && !t2.AssignableTo(t1) {
+			typeMismatch = true
+		}
 	}
 
 	args, filename, line, err := ParseArgs("Equal", 1, 0, 1)
