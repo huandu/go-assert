@@ -18,6 +18,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 // FalseKind is the kind of a false-equivalent value.
@@ -82,12 +84,23 @@ func AssertEqual(t *testing.T, v1, v2 interface{}, trigger *Trigger) {
 		return
 	}
 
+	config := &spew.ConfigState{
+		DisableMethods:          true,
+		DisablePointerMethods:   true,
+		DisablePointerAddresses: true,
+		DisableCapacities:       true,
+		SortKeys:                true,
+		SpewKeys:                true,
+	}
+	v1Dump := config.Sprintf("%#v", v1)
+	v2Dump := config.Sprintf("%#v", v2)
+
 	if typeMismatch {
-		t.Fatalf("\n%v:%v: Assertion failed: type of %v and %v should be the same.\n\tv1 = %v (type %[5]T)\n\tv2 = %v (type %[6]T)",
-			filename, line, args[0], args[1], v1, v2)
+		t.Fatalf("\n%v:%v: Assertion failed: type of %v and %v should be the same.\n\tv1 = %v\n\tv2 = %v",
+			filename, line, args[0], args[1], v1Dump, v2Dump)
 	} else {
-		t.Fatalf("\n%v:%v: Assertion failed: %v == %v\n\tv1 = %v (type %[5]T)\n\tv2 = %v (type %[6]T)",
-			filename, line, args[0], args[1], v1, v2)
+		t.Fatalf("\n%v:%v: Assertion failed: %v == %v\n\tv1 = %v\n\tv2 = %v",
+			filename, line, args[0], args[1], v1Dump, v2Dump)
 	}
 }
 
