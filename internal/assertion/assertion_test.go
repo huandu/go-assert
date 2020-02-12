@@ -7,50 +7,81 @@ import (
 	"testing"
 )
 
+func assertEqual(t *testing.T, v1, v2 interface{}) {
+	AssertEqual(t, v1, v2, &Trigger{
+		FuncName: "assertEqual",
+		Skip:     1,
+		Args:     []int{1, 2},
+	})
+}
+
 func TestParseFalseKind(t *testing.T) {
-	if k := ParseFalseKind(12); k != Positive {
-		t.Fatalf("unexpected kind. [k:%v]", k)
+	cases := []struct {
+		Value interface{}
+		Kind  FalseKind
+	}{
+		{
+			12, Positive,
+		},
+		{
+			nil, Nil,
+		},
+		{
+			0, Zero,
+		},
+		{
+			false, False,
+		},
+		{
+			[]int{}, Positive,
+		},
+		{
+			([]int)(nil), Nil,
+		},
+		{
+			"", EmptyString,
+		},
 	}
 
-	if k := ParseFalseKind(nil); k != Nil {
-		t.Fatalf("unexpected kind. [k:%v]", k)
-	}
-
-	if k := ParseFalseKind(0); k != Zero {
-		t.Fatalf("unexpected kind. [k:%v]", k)
-	}
-
-	if k := ParseFalseKind(false); k != False {
-		t.Fatalf("unexpected kind. [k:%v]", k)
-	}
-
-	if k := ParseFalseKind([]int{}); k != Positive {
-		t.Fatalf("unexpected kind. [k:%v]", k)
-	}
-
-	var i1 interface{} = 123
-	if k := ParseFalseKind(i1); k != Positive {
-		t.Fatalf("unexpected kind. [k:%v]", k)
-	}
-
-	s := ""
-	var i2 interface{} = s
-	if k := ParseFalseKind(i2); k != EmptyString {
-		t.Fatalf("unexpected kind. [k:%v]", k)
+	for i, c := range cases {
+		t.Logf("case %v: %v", i, c)
+		k := ParseFalseKind(c.Value)
+		assertEqual(t, c.Kind, k)
 	}
 }
 
 func TestParseArgs(t *testing.T) {
-	if args, filename, _, err := ParseArgs("ParseArgs", 0, []int{0}); err != nil || len(args) != 1 || args[0] != `"ParseArgs"` || filename != "assertion_test.go" {
-		t.Fatalf("unexpected expr. [expr:%v]", args[0])
+	cases := []struct {
+		ArgIndex    []int
+		Args        []string
+		Assignments []string
+	}{
+		{
+			[]int{0},
+			[]string{`"ParseArgs"`},
+			[]string{""},
+		},
+		{
+			[]int{1},
+			[]string{`skip`},
+			[]string{`skip = 0`},
+		},
+		{
+			[]int{-1, 0, -2},
+			[]string{`c.ArgIndex`, `"ParseArgs"`, `skip`},
+			[]string{`i, c := range cases`, "", `skip = 0`},
+		},
 	}
 
-	if args, filename, _, err := ParseArgs("Parse"+"Args", 0, []int{0}); err != nil || len(args) != 1 || args[0] != `"Parse"+"Args"` || filename != "assertion_test.go" {
-		t.Fatalf("unexpected expr. [expr:%v]", args[0])
-	}
+	for i, c := range cases {
+		t.Logf("case %v: %v", i, c)
+		skip := 1
+		skip = 0
+		args, assignments, _, _, err := ParseArgs("ParseArgs", skip, c.ArgIndex)
+		skip = 2
 
-	if args, filename, _, err := ParseArgs("Parse"+"Args", 0, []int{-1, 0, -2}); err != nil || len(args) != 3 ||
-		args[0] != "[]int{-1, 0, -2}" || args[1] != `"Parse"+"Args"` || args[2] != "0" || filename != "assertion_test.go" {
-		t.Fatalf("unexpected expr. [expr:%v]", args)
+		assertEqual(t, err, nil)
+		assertEqual(t, args, c.Args)
+		assertEqual(t, assignments, c.Assignments)
 	}
 }
