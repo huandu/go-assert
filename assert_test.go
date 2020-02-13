@@ -160,3 +160,18 @@ func TestAssertNotEqualWithAssertion(t *testing.T) {
 	v4 := []int{1, 2, 3}
 	a.NotEqual(v3, v4)
 }
+
+func TestUse(t *testing.T) {
+	a := New(t)
+	v1 := 123
+	v2 := "foo"
+	a.Use(v1, &v2) // v2 is used but v1 is not used due to missing `&`.
+
+	// Should pass.
+	a.Assert(v1 == 123 && v2 == "foo")
+
+	// Should fail.
+	v1 = 345
+	v2 = "bar"
+	a.Assert(v1 > 123 && v2 != "bar")
+}

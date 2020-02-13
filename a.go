@@ -4,6 +4,11 @@
 package assert
 
 import (
+	"bytes"
+	"go/ast"
+	"go/printer"
+	"go/token"
+	"reflect"
 	"testing"
 
 	"github.com/huandu/go-assert/internal/assertion"
@@ -12,12 +17,15 @@ import (
 // The A is a wrapper of testing.T with some extra help methods.
 type A struct {
 	*testing.T
+
+	vars map[string]interface{}
 }
 
 // New creates an assertion object wraps t.
 func New(t *testing.T) *A {
 	return &A{
-		T: t,
+		T:    t,
+		vars: make(map[string]interface{}),
 	}
 }
 
@@ -37,6 +45,7 @@ func (a *A) Assert(expr interface{}) {
 		FuncName: "Assert",
 		Skip:     1,
 		Args:     []int{0},
+		Vars:     a.vars,
 	})
 }
 
@@ -56,6 +65,7 @@ func (a *A) NilError(result ...interface{}) {
 		FuncName: "NilError",
 		Skip:     1,
 		Args:     []int{-1},
+		Vars:     a.vars,
 	})
 }
 
@@ -76,6 +86,7 @@ func (a *A) NonNilError(result ...interface{}) {
 		FuncName: "NonNilError",
 		Skip:     1,
 		Args:     []int{-1},
+		Vars:     a.vars,
 	})
 }
 
@@ -99,6 +110,7 @@ func (a *A) Equal(v1, v2 interface{}) {
 		FuncName: "Equal",
 		Skip:     1,
 		Args:     []int{0, 1},
+		Vars:     a.vars,
 	})
 }
 
@@ -120,5 +132,64 @@ func (a *A) NotEqual(v1, v2 interface{}) {
 		FuncName: "NotEqual",
 		Skip:     1,
 		Args:     []int{0, 1},
+		Vars:     a.vars,
 	})
+}
+
+// Use saves args in context and prints related args automatically in assertion method.
+func (a *A) Use(args ...interface{}) {
+	if len(args) == 0 {
+		return
+	}
+
+	argIndex := make([]int, 0, len(args))
+	values := make([]interface{}, 0, len(args))
+
+	for i := range args {
+		if args[i] == nil {
+			continue
+		}
+
+		val := reflect.ValueOf(args[i])
+
+		if val.Kind() != reflect.Ptr {
+			continue
+		}
+
+		val = val.Elem()
+
+		if !val.IsValid() {
+			continue
+		}
+
+		argIndex = append(argIndex, i)
+		values = append(values, args[i])
+	}
+
+	if len(argIndex) == 0 {
+		return
+	}
+
+	f, err := assertion.ParseArgs("Use", 1, argIndex)
+
+	if err != nil {
+		return
+	}
+
+	for i, arg := range f.Args {
+		// Arg must be something like `&a` or `&a.b`.
+		// Otherwise, ignore the arg.
+		expr, ok := arg.(*ast.UnaryExpr)
+		if !ok || expr.Op != token.AND {
+			continue
+		}
+
+		if !assertion.IsVar(expr.X) {
+			continue
+		}
+
+		buf := &bytes.Buffer{}
+		printer.Fprint(buf, f.FileSet, expr.X)
+		a.vars[buf.String()] = values[i]
+	}
 }

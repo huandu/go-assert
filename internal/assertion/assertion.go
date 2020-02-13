@@ -6,16 +6,7 @@
 package assertion
 
 import (
-	"bytes"
-	"fmt"
-	"go/ast"
-	"go/parser"
-	"go/printer"
-	"go/token"
-	"os"
-	"path"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -39,35 +30,7 @@ type Trigger struct {
 	FuncName string
 	Skip     int
 	Args     []int
-}
-
-func indentCode(code string, spaces int, indentFirstLine bool, newLine bool) string {
-	if code == "" {
-		return ""
-	}
-
-	lines := strings.Split(code, "\n")
-	indented := make([]string, 0, len(lines))
-	space := strings.Repeat(" ", spaces)
-	firstLine := lines[0]
-
-	if newLine {
-		firstLine = ""
-	} else {
-		lines = lines[1:]
-	}
-
-	if indentFirstLine {
-		indented = append(indented, space+firstLine)
-	} else {
-		indented = append(indented, firstLine)
-	}
-
-	for _, line := range lines {
-		indented = append(indented, space+line)
-	}
-
-	return strings.Join(indented, "\n")
+	Vars     map[string]interface{}
 }
 
 // Assert tests expr and call `t.Fatalf` to terminate test case if expr is false-equivalent value.
@@ -78,15 +41,16 @@ func Assert(t *testing.T, expr interface{}, trigger *Trigger) {
 		return
 	}
 
-	args, assignments, filename, line, err := ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
+	f, err := ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
 
 	if err != nil {
 		t.Fatalf("Assertion failed with an internal error: %v", err)
 		return
 	}
 
+	info := f.Info()
 	suffix := ""
-	arg := args[0]
+	arg := info.Args[0]
 
 	if !strings.ContainsRune(arg, ' ') {
 		switch k {
@@ -101,14 +65,16 @@ func Assert(t *testing.T, expr interface{}, trigger *Trigger) {
 		}
 	}
 
-	assignment := indentCode(assignments[0], 4, false, true)
+	assignment := indentAssignments(info.Assignments[0], 4)
 
 	if assignment != "" {
-		assignment = "\nWhich is assigned in this statement:" + assignment
+		assignment = "\nReferenced variables are assigned in following statements:" + assignment
 	}
 
-	t.Fatalf("\n%v:%v: Assertion failed:\n%v%v%v",
-		filename, line, indentCode(arg, 4, true, false), suffix, assignment)
+	t.Fatalf("\n%v:%v: Assertion failed:\n    %v%v%v%v",
+		f.Filename, f.Line, indentCode(arg, 4), suffix,
+		assignment, formatRelatedVars(info.RelatedVars, trigger.Vars),
+	)
 }
 
 // AssertEqual uses `reflect.DeepEqual` to test v1 and v2 equality.
@@ -136,13 +102,14 @@ func AssertEqual(t *testing.T, v1, v2 interface{}, trigger *Trigger) {
 		}
 	}
 
-	args, assignments, filename, line, err := ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
+	f, err := ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
 
 	if err != nil {
 		t.Fatalf("Assertion failed with an internal error: %v", err)
 		return
 	}
 
+	info := f.Info()
 	config := &spew.ConfigState{
 		DisableMethods:          true,
 		DisablePointerMethods:   true,
@@ -153,14 +120,18 @@ func AssertEqual(t *testing.T, v1, v2 interface{}, trigger *Trigger) {
 	}
 	v1Dump := config.Sprintf("%#v", v1)
 	v2Dump := config.Sprintf("%#v", v2)
+	msg := "The value of following expression should equal."
 
 	if typeMismatch {
-		t.Fatalf("\n%v:%v: Assertion failed:\nThe type of following expressions should be the same.\n[1] %v%v\n[2] %v%v\nValues:\n[1] = %v\n[2] = %v",
-			filename, line, indentCode(args[0], 4, false, false), indentCode(assignments[0], 4, false, true), indentCode(args[1], 4, false, false), indentCode(assignments[1], 4, false, true), v1Dump, v2Dump)
-	} else {
-		t.Fatalf("\n%v:%v: Assertion failed:\nThe value of following expression should equal.\n[1] %v%v\n[2] %v%v\nValues:\n[1] = %v\n[2] = %v",
-			filename, line, indentCode(args[0], 4, false, false), indentCode(assignments[0], 4, false, true), indentCode(args[1], 4, false, false), indentCode(assignments[1], 4, false, true), v1Dump, v2Dump)
+		msg = "The type of following expressions should be the same."
 	}
+
+	t.Fatalf("\n%v:%v: Assertion failed:\n%v\n%v\n[1] %v%v\n[2] %v%v\nValues:\n[1] -> %v\n[2] -> %v%v",
+		f.Filename, f.Line, indentCode(info.Source, 4), msg,
+		indentCode(info.Args[0], 4), indentAssignments(info.Assignments[0], 4),
+		indentCode(info.Args[1], 4), indentAssignments(info.Assignments[1], 4),
+		v1Dump, v2Dump, formatRelatedVars(info.RelatedVars, trigger.Vars),
+	)
 }
 
 func isNil(val reflect.Value) bool {
@@ -180,15 +151,20 @@ func AssertNotEqual(t *testing.T, v1, v2 interface{}, trigger *Trigger) {
 		return
 	}
 
-	args, assignments, filename, line, err := ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
+	f, err := ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
 
 	if err != nil {
 		t.Fatalf("Assertion failed with an internal error: %v", err)
 		return
 	}
 
-	t.Fatalf("\n%v:%v: Assertion failed:\nThe value of following expression should not equal.\n[1] %v%v\n[2] %v%v",
-		filename, line, indentCode(args[0], 4, false, false), indentCode(assignments[0], 4, false, true), indentCode(args[1], 4, false, false), indentCode(assignments[1], 4, false, true))
+	info := f.Info()
+	t.Fatalf("\n%v:%v: Assertion failed:\n%v\nThe value of following expression should not equal.\n[1] %v%v\n[2] %v%v%v",
+		f.Filename, f.Line, indentCode(info.Source, 4),
+		indentCode(info.Args[0], 4), indentAssignments(info.Assignments[0], 4),
+		indentCode(info.Args[1], 4), indentAssignments(info.Assignments[1], 4),
+		formatRelatedVars(info.RelatedVars, trigger.Vars),
+	)
 }
 
 // AssertNilError expects a function return a nil error.
@@ -205,15 +181,19 @@ func AssertNilError(t *testing.T, result []interface{}, trigger *Trigger) {
 		return
 	}
 
-	args, assignments, filename, line, err := ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
+	f, err := ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
 
 	if err != nil {
 		t.Fatalf("Assertion failed with an internal error: %v", err)
 		return
 	}
 
-	t.Fatalf("\n%v:%v: Assertion failed:\nFollowing expression should return a nil error.\n%v%v\nThe error is:\n    %v",
-		filename, line, indentCode(args[0], 4, true, false), indentCode(assignments[0], 4, false, true), e)
+	info := f.Info()
+	t.Fatalf("\n%v:%v: Assertion failed:\nFollowing expression should return a nil error.\n%v%v\nThe error is:\n    %v%v",
+		f.Filename, f.Line,
+		indentCode(info.Args[0], 4), indentAssignments(info.Assignments[0], 4),
+		e, formatRelatedVars(info.RelatedVars, trigger.Vars),
+	)
 }
 
 // AssertNonNilError expects a function return a non-nil error.
@@ -236,325 +216,168 @@ func AssertNonNilError(t *testing.T, result []interface{}, trigger *Trigger) {
 		}
 	}
 
-	args, assignments, filename, line, err := ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
+	f, err := ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
 
 	if err != nil {
 		t.Fatalf("Assertion failed with an internal error: %v", err)
 		return
 	}
 
-	t.Fatalf("\n%v:%v: Assertion failed:\nFollowing expression should return an error.\n%v%v",
-		filename, line, indentCode(args[0], 4, true, false), indentCode(assignments[0], 4, false, true))
+	info := f.Info()
+	t.Fatalf("\n%v:%v: Assertion failed:\nFollowing expression should return an error.\n%v%v%v",
+		f.Filename, f.Line,
+		indentCode(info.Args[0], 4), indentAssignments(info.Assignments[0], 4),
+		formatRelatedVars(info.RelatedVars, trigger.Vars),
+	)
 }
 
-// ParseFalseKind checks expr value and return false when expr is `false`, 0, `nil` and empty string.
-// Otherwise, return true.
-func ParseFalseKind(expr interface{}) FalseKind {
-	if expr == nil {
-		return Nil
+func indentCode(code string, spaces int) string {
+	if code == "" {
+		return ""
 	}
 
-	if v, ok := expr.(bool); ok && !v {
-		return False
+	lines := strings.Split(code, "\n")
+	indented := make([]string, 0, len(lines))
+	space := strings.Repeat(" ", spaces)
+
+	indented = append(indented, lines[0])
+	lines = lines[1:]
+
+	for _, line := range lines {
+		indented = append(indented, space+line)
 	}
 
-	v := reflect.ValueOf(expr)
+	return strings.Join(indented, "\n")
+}
 
-	for {
-		switch v.Kind() {
-		case reflect.Invalid:
-			return Nil
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			if n := v.Int(); n == 0 {
-				return Zero
-			}
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			if n := v.Uint(); n == 0 {
-				return Zero
-			}
-		case reflect.Float32, reflect.Float64:
-			if n := v.Float(); n == 0 {
-				return Zero
-			}
-		case reflect.Complex64, reflect.Complex128:
-			if n := v.Complex(); n == 0 {
-				return Zero
-			}
-		case reflect.String:
-			if s := v.String(); s == "" {
-				return EmptyString
-			}
-		case reflect.Interface:
-			if v.IsNil() {
-				return Nil
-			}
+func indentAssignments(assignments []string, spaces int) string {
+	if len(assignments) == 0 {
+		return ""
+	}
 
-			v = v.Elem()
+	space := strings.Repeat(" ", spaces)
+	output := make([]string, 0)
+	output = append(output, "") // Add a newline at the front.
+
+	for _, code := range assignments {
+		lines := strings.Split(code, "\n")
+		indented := make([]string, 0, len(lines))
+
+		indented = append(indented, space+lines[0])
+		lines = lines[1:]
+
+		for _, line := range lines {
+			indented = append(indented, space+line)
+		}
+
+		output = append(output, indented...)
+	}
+
+	return strings.Join(output, "\n")
+}
+
+func formatRelatedVars(related []string, vars map[string]interface{}) string {
+	if len(related) == 0 || len(vars) == 0 {
+		return ""
+	}
+
+	values := make([]interface{}, 0, len(related))
+	names := make([]string, 0, len(related))
+	fields := make([]string, 0, len(related))
+
+	for _, name := range related {
+		if v, ok := vars[name]; ok {
+			values = append(values, v)
+			names = append(names, name)
+			fields = append(fields, "")
 			continue
-		case reflect.Ptr, reflect.Chan, reflect.Func, reflect.Slice:
-			if v.IsNil() {
-				return Nil
+		}
+
+		parts := strings.Split(name, ".")
+		parts = parts[:len(parts)-1]
+
+		for len(parts) > 0 {
+			n := strings.Join(parts, ".")
+
+			if v, ok := vars[n]; ok {
+				values = append(values, v)
+				names = append(names, name)
+				fields = append(fields, name[len(n)+1:])
+				break
 			}
-		}
 
-		return Positive
-	}
-}
-
-// ParseArgs parses caller's source code, finds out the right call expression by name
-// and returns the argument source code.
-//
-// Skip is the stack frame calling an assert function. If skip is 0, the stack frame for
-// ParseArgs is selected.
-// In most cases, caller should set skip to 1 to skip ParseArgs itself.
-func ParseArgs(name string, skip int, argIndex []int) (args []string, assignments []string, filename string, line int, err error) {
-	if len(argIndex) == 0 {
-		err = fmt.Errorf("missing argIndex")
-		return
-	}
-
-	const minimumSkip = 2 // Skip 2 frames running runtime functions.
-
-	pc := make([]uintptr, 1)
-	n := runtime.Callers(skip+minimumSkip, pc)
-
-	if n == 0 {
-		err = fmt.Errorf("fail to read call stack")
-		return
-	}
-
-	pc = pc[:n]
-	frames := runtime.CallersFrames(pc)
-
-	var frame runtime.Frame
-	done := false
-
-	frame, _ = frames.Next()
-	filename = frame.File
-	line = frame.Line
-
-	if filename == "" || line == 0 {
-		err = fmt.Errorf("fail to read source code information")
-		return
-	}
-
-	dotIdx := strings.LastIndex(name, ".")
-
-	if dotIdx >= 0 {
-		name = name[dotIdx+1:]
-	}
-
-	// Load AST and find target function at target line.
-	fset := token.NewFileSet()
-	parsedAst, err := parseFile(fset, filename)
-	filename = path.Base(filename)
-
-	if err != nil {
-		return
-	}
-
-	argNodes := make([]ast.Node, 0, len(argIndex))
-	maxArgIdx := 0
-	var funcDecl *ast.FuncDecl
-
-	for _, idx := range argIndex {
-		if idx > maxArgIdx {
-			maxArgIdx = idx
+			n = n[:len(n)-1]
 		}
 	}
 
-	ast.Inspect(parsedAst, func(node ast.Node) bool {
-		if node == nil || done {
-			return false
+	if len(values) == 0 {
+		return ""
+	}
+
+	config := &spew.ConfigState{
+		DisableMethods:          true,
+		DisablePointerMethods:   true,
+		DisablePointerAddresses: true,
+		DisableCapacities:       true,
+		SortKeys:                true,
+		SpewKeys:                true,
+	}
+	lines := make([]string, 0, len(values)+1)
+	lines = append(lines, "\nReferenced variables:")
+
+	for i, v := range values {
+		val := reflect.ValueOf(v)
+
+		if !val.IsValid() || val.Kind() != reflect.Ptr {
+			continue
 		}
 
-		if decl, ok := node.(*ast.FuncDecl); ok {
-			funcDecl = decl
-			return true
-		}
-
-		call, ok := node.(*ast.CallExpr)
+		val = val.Elem()
+		v, ok := getValue(fields[i], val)
 
 		if !ok {
-			return true
+			continue
 		}
 
-		var fn string
-		switch expr := call.Fun.(type) {
-		case *ast.Ident:
-			fn = expr.Name
-		case *ast.SelectorExpr:
-			fn = expr.Sel.Name
-		}
-
-		if fn != name {
-			return true
-		}
-
-		pos := fset.Position(call.Pos())
-		posEnd := fset.Position(call.End())
-
-		if line < pos.Line || line > posEnd.Line {
-			return true
-		}
-
-		for _, idx := range argIndex {
-			if idx < 0 {
-				idx += len(call.Args)
-			}
-
-			if idx < 0 || idx >= len(call.Args) {
-				// Ignore invalid idx.
-				argNodes = append(argNodes, nil)
-				continue
-			}
-
-			arg := call.Args[idx]
-			argNodes = append(argNodes, arg)
-		}
-
-		done = true
-		return false
-	})
-
-	args = make([]string, 0, len(argIndex))
-	assignments = make([]string, 0, len(argIndex))
-
-	// If args contains any arg which is an ident, find out where it's assigned.
-	for _, arg := range argNodes {
-		args = append(args, formatNode(fset, arg))
-		assignments = append(assignments, findAssignment(fset, funcDecl, line, arg))
+		lines = append(lines, config.Sprintf("    "+names[i]+" = %#v", v))
 	}
 
+	// No valid related variables.
+	if len(lines) == 1 {
+		return ""
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+func getValue(field string, v reflect.Value) (value interface{}, ok bool) {
+	if field == "" {
+		value = v.Interface()
+		ok = true
+		return
+	}
+
+	val := reflect.ValueOf(v)
+
+	for val.Kind() == reflect.Ptr || val.Kind() == reflect.Interface {
+		val = val.Elem()
+	}
+
+	if !val.IsValid() {
+		return
+	}
+
+	if val.Kind() != reflect.Struct {
+		return
+	}
+
+	parts := strings.Split(field, ".")
+	val = val.FieldByName(parts[0])
+
+	if !val.IsValid() {
+		return
+	}
+
+	value, ok = getValue(strings.Join(parts[1:], "."), val)
 	return
-}
-
-func parseFile(fset *token.FileSet, filename string) (*ast.File, error) {
-	file, err := os.Open(filename)
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer file.Close()
-	f, err := parser.ParseFile(fset, filename, file, 0)
-	return f, err
-}
-
-func formatNode(fset *token.FileSet, node ast.Node) string {
-	if node == nil {
-		return ""
-	}
-
-	buf := &bytes.Buffer{}
-	config := &printer.Config{
-		Mode:     printer.UseSpaces,
-		Tabwidth: 4,
-	}
-	config.Fprint(buf, fset, node)
-	return buf.String()
-}
-
-func findAssignment(fset *token.FileSet, decl *ast.FuncDecl, line int, arg ast.Node) string {
-	if decl == nil || arg == nil {
-		return ""
-	}
-
-	ident := findIdent(arg)
-
-	if ident == "" {
-		return ""
-	}
-
-	// Find the last assignment for ident.
-	done := false
-	var assignment ast.Stmt
-	ast.Inspect(decl, func(n ast.Node) bool {
-		if n == nil || done {
-			return false
-		}
-
-		if pos := fset.Position(n.Pos()); pos.Line >= line {
-			done = true
-			return false
-		}
-
-		switch stmt := n.(type) {
-		case *ast.AssignStmt:
-			for _, left := range stmt.Lhs {
-				switch expr := left.(type) {
-				case *ast.Ident:
-					if ident == expr.Name {
-						assignment = stmt
-						return true
-					}
-				}
-			}
-
-			for _, right := range stmt.Rhs {
-				switch expr := right.(type) {
-				case *ast.UnaryExpr:
-					// Treat `&a` as a kind of assignment to `a`.
-					if id, ok := expr.X.(*ast.Ident); ok && expr.Op == token.AND && id.Name == ident {
-						assignment = stmt
-						return true
-					}
-				}
-			}
-		case *ast.RangeStmt:
-			if stmt.Key == nil {
-				return true
-			}
-
-			switch expr := stmt.Key.(type) {
-			case *ast.Ident:
-				if ident == expr.Name {
-					assignment = stmt
-					return true
-				}
-			}
-
-			if stmt.Value == nil {
-				return true
-			}
-
-			switch expr := stmt.Value.(type) {
-			case *ast.Ident:
-				if ident == expr.Name {
-					assignment = stmt
-					return true
-				}
-			}
-		}
-
-		return true
-	})
-
-	// For RangeStmt, only use the code like `k, v := range arr`.
-	if rng, ok := assignment.(*ast.RangeStmt); ok {
-		stmt := *rng
-		body := *rng.Body
-		body.List = nil
-		stmt.Body = &body
-		code := formatNode(fset, &stmt)
-		return code[stmt.Key.Pos()-stmt.Pos() : stmt.X.End()-stmt.Pos()]
-	}
-
-	return formatNode(fset, assignment)
-}
-
-// findIdent parses arg to find ident in arg.
-// Only if arg is an ident, selector, or an unary expr against ident/selector like `*a` or `&a.b`,
-// the ident will be returned. Otherwise, return empty string.
-func findIdent(arg ast.Node) string {
-	switch expr := arg.(type) {
-	case *ast.Ident:
-		return expr.Name
-	case *ast.SelectorExpr:
-		return findIdent(expr.X)
-	case *ast.UnaryExpr:
-		return findIdent(expr.X)
-	}
-
-	return ""
 }
