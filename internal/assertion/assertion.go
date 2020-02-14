@@ -189,7 +189,7 @@ func AssertNilError(t *testing.T, result []interface{}, trigger *Trigger) {
 	}
 
 	info := f.Info()
-	t.Fatalf("\n%v:%v: Assertion failed:\nFollowing expression should return a nil error.\n%v%v\nThe error is:\n    %v%v",
+	t.Fatalf("\n%v:%v: Assertion failed:\nFollowing expression should return a nil error.\n    %v%v\nThe error is:\n    %v%v",
 		f.Filename, f.Line,
 		indentCode(info.Args[0], 4), indentAssignments(info.Assignments[0], 4),
 		e, formatRelatedVars(info.RelatedVars, trigger.Vars),
@@ -224,7 +224,7 @@ func AssertNonNilError(t *testing.T, result []interface{}, trigger *Trigger) {
 	}
 
 	info := f.Info()
-	t.Fatalf("\n%v:%v: Assertion failed:\nFollowing expression should return an error.\n%v%v%v",
+	t.Fatalf("\n%v:%v: Assertion failed:\nFollowing expression should return an error.\n    %v%v%v",
 		f.Filename, f.Line,
 		indentCode(info.Args[0], 4), indentAssignments(info.Assignments[0], 4),
 		formatRelatedVars(info.RelatedVars, trigger.Vars),
