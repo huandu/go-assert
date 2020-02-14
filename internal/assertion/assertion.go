@@ -306,7 +306,7 @@ func formatRelatedVars(related []string, vars map[string]interface{}) string {
 				break
 			}
 
-			n = n[:len(n)-1]
+			parts = parts[:len(parts)-1]
 		}
 	}
 
