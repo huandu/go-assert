@@ -91,7 +91,7 @@ func TestParseArgs(t *testing.T) {
 				{`skip = 0`},
 				nil,
 			},
-			[]string{`c`, `i`, `args`, `prefix`, `s`},
+			[]string{`args`, `c`, `i`, `prefix`, `s`},
 		},
 	}
 	p := new(Parser)

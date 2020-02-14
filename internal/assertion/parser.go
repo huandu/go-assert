@@ -174,21 +174,31 @@ func (p *Parser) ParseInfo(f *Func) (info *Info) {
 	fset := f.FileSet
 	args := make([]string, 0, len(f.Args))
 	assignments := make([][]string, 0, len(f.Args))
-	relatedVars := make([]string, 0, 4*len(f.Args))
+	relatedVars := make(map[string]struct{})
 
 	// If args contains any arg which is an ident, find out where it's assigned.
 	for _, arg := range f.Args {
 		assigns, related := findAssignments(fset, f.Func, f.Line, arg, p.Excluded)
 		args = append(args, formatNode(fset, arg))
 		assignments = append(assignments, assigns)
-		relatedVars = append(relatedVars, related...)
+
+		for v := range related {
+			relatedVars[v] = struct{}{}
+		}
 	}
 
+	vars := make([]string, 0, len(relatedVars))
+
+	for v := range relatedVars {
+		vars = append(vars, v)
+	}
+
+	sort.Strings(vars)
 	info = &Info{
 		Source:      formatNode(fset, f.Caller),
 		Args:        args,
 		Assignments: assignments,
-		RelatedVars: relatedVars,
+		RelatedVars: vars,
 	}
 	return
 }
@@ -272,7 +282,7 @@ func formatNode(fset *token.FileSet, node ast.Node) string {
 	return buf.String()
 }
 
-func findAssignments(fset *token.FileSet, decl *ast.FuncDecl, line int, arg ast.Expr, excluded []*ast.CallExpr) (assignments []string, related []string) {
+func findAssignments(fset *token.FileSet, decl *ast.FuncDecl, line int, arg ast.Expr, excluded []*ast.CallExpr) (assignments []string, relatedVars map[string]struct{}) {
 	if decl == nil || arg == nil {
 		return
 	}
@@ -398,7 +408,7 @@ func findAssignments(fset *token.FileSet, decl *ast.FuncDecl, line int, arg ast.
 	// Find out related vars referenced in expr.
 	// If there is a SelectorExpr, use the longest possible selector.
 	// E.g., for expr `a.b.c.d()`, only the longest selector expr `a.b.c` is returned.
-	relatedVars := make(map[string]struct{})
+	relatedVars = make(map[string]struct{})
 
 	for _, expr := range relatedExprs {
 		related := findRelatedExprs(fset, expr)
@@ -424,13 +434,6 @@ func findAssignments(fset *token.FileSet, decl *ast.FuncDecl, line int, arg ast.
 
 		assignments = append(assignments, code)
 	}
-
-	// Format all related vars.
-	related = make([]string, 0, len(relatedVars))
-	for r := range relatedVars {
-		related = append(related, r)
-	}
-	sort.Strings(related)
 
 	return
 }
