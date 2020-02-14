@@ -248,5 +248,5 @@ func (a *A) Use(args ...interface{}) {
 		a.vars[buf.String()] = values[i]
 	}
 
-	a.parser.Excluded = append(a.parser.Excluded, f.Caller)
+	a.parser.AddExcluded(f.Caller)
 }

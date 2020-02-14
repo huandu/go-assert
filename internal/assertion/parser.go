@@ -17,8 +17,10 @@ import (
 
 // Parser represents a source file parser.
 type Parser struct {
+	m sync.Mutex
+
 	// Excluded call exprs should be excluded when finding assignments.
-	Excluded []*ast.CallExpr
+	excluded []*ast.CallExpr
 }
 
 // Info represents code analysis information of an assertion function.
@@ -178,7 +180,7 @@ func (p *Parser) ParseInfo(f *Func) (info *Info) {
 
 	// If args contains any arg which is an ident, find out where it's assigned.
 	for _, arg := range f.Args {
-		assigns, related := findAssignments(fset, f.Func, f.Line, arg, p.Excluded)
+		assigns, related := findAssignments(fset, f.Func, f.Line, arg, p.excluded)
 		args = append(args, formatNode(fset, arg))
 		assignments = append(assignments, assigns)
 
@@ -575,4 +577,12 @@ func IsIncluded(parent, child string) bool {
 	}
 
 	return false
+}
+
+// AddExcluded adds an expr to excluded expr list so that
+// this expr will not be inspected when finding related assignments.
+func (p *Parser) AddExcluded(expr *ast.CallExpr) {
+	p.m.Lock()
+	defer p.m.Unlock()
+	p.excluded = append(p.excluded, expr)
 }
