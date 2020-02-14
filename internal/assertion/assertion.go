@@ -323,7 +323,7 @@ func formatRelatedVars(related []string, vars map[string]interface{}) string {
 		SpewKeys:                true,
 	}
 	lines := make([]string, 0, len(values)+1)
-	lines = append(lines, "\nReferenced variables:")
+	lines = append(lines, "\nRelated variables:")
 
 	for i, v := range values {
 		val := reflect.ValueOf(v)

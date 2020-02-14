@@ -72,7 +72,7 @@ func TestParseArgs(t *testing.T) {
 			[][]string{
 				{`f(&args)`, `prefix := s.(type)`},
 			},
-			[]string{`args`, `prefix`},
+			[]string{`args`, `prefix`, `s`},
 		},
 		{
 			[]int{1},
@@ -91,7 +91,7 @@ func TestParseArgs(t *testing.T) {
 				{`skip = 0`},
 				nil,
 			},
-			[]string{`c`, `i`, `args`, `prefix`},
+			[]string{`c`, `i`, `args`, `prefix`, `s`},
 		},
 	}
 

@@ -1,11 +1,10 @@
-# Package `assert` - assert macro for Go #
+# Package `assert` - Magic assert macros for Go #
 
 [![Build Status](https://travis-ci.org/huandu/go-assert.svg?branch=master)](https://travis-ci.org/huandu/go-assert)
 [![GoDoc](https://godoc.org/github.com/huandu/go-assert?status.svg)](https://godoc.org/github.com/huandu/go-assert)
 
-Package `assert` provides developer a way to assert expression and magically output lots of useful contextual information when a case fails.
-
-For example, if we write `Assert(t, a > b)` when `a = 1` and `b = 2`, we can read `Assertion failed: a > b` in the failure message. The `a > b` is the expression evaluated in `Assert`.
+Package `assert` provides developer a way to assert expression and output useful contextual information automatically when a case fails.
+With this package, we can focus on writing test code without worrying about how to print lots of verbose debug information for debug.
 
 Here is a quick sample.
 
@@ -35,7 +34,7 @@ Current stable version is `v1.*`. Old versions tagged by `v0.*` are obsoleted.
 
 ## Usage ##
 
-### Assertions ###
+### Assertion methods ###
 
 If we just want to use functions like `Assert`, `AssertEqual` or `AssertNotEqual`, it's recommended to import this package as `.`.
 
@@ -80,29 +79,14 @@ func TestAssertEquality(t *testing.T) {
 ### Advanced assertion wrapper: type `A` ###
 
 If we want more controls on assertion, it's recommended to wrap `t` in an `A`.
-One huge benifit of using `A` is that it can assert a function call directly like following.
 
-```go
-import "github.com/huandu/go-assert"
+There are lots of useful assert methods implemented in `A`.
 
-func TestCallAFunction(t *testing.T) {
-    a := assert.New(t)
+* [`Assert`](https://godoc.org/github.com/huandu/go-assert#A.Assert)/[`Eqaul`](https://godoc.org/github.com/huandu/go-assert#A.Equal)/[`NotEqual`](https://godoc.org/github.com/huandu/go-assert#A.NotEqual): Basic assertion methods.
+* [`NilError`](https://godoc.org/github.com/huandu/go-assert#A.NilError)/[`NonNilError`](https://godoc.org/github.com/huandu/go-assert#A.NonNilError): Test if a func/method returns expected error.
+* [`Use`](https://godoc.org/github.com/huandu/go-assert#A.Use): Track variables. If any assert method fails, all variables tracked by `A` and related in assert method will be printed out automatically in assertion message.
 
-    f := func(bool, int) (int, string, error) {
-        return 0, "", errors.New("an error")
-    }
-    a.NilError(f(true, 42)) // Assert calls to f to make test code more readable.
-    
-    // This case fails with message:
-    //     Assertion failed:
-    //     Following expression should return a nil error.
-    //         f(true, 42)
-    //     The error is:
-    //         an error
-}
-```
-
-If we want to print variables referenced by assertion expression automatically, call `A#Use` to track variables.
+Here is a sample to demonstrate how to use `A#Use` to print related variables in assertion message.
 
 ```go
 import "github.com/huandu/go-assert"
@@ -110,21 +94,23 @@ import "github.com/huandu/go-assert"
 func TestSomething(t *testing.T) {
     a := assert.New(t)
     v1 := 123
-    v2 := "wrong"
-    v3 := 3.45
-    a.Use(&v1, &v2, &v3)
+    v2 := []string{"wrong", "right"}
+    v3 := v2[0]
+    v4 := "not related"
+    a.Use(&v1, &v2, &v3, &v4)
 
-    a.Assert(v1 == 123 && v2 == "right")
+    a.Assert(v1 == 123 && v3 == "right")
 
     // This case fails with following message.
     //
     //     Assertion failed:
-    //         v1 == 123 && v2 == "right"
+    //         v1 == 123 && v3 == "right"
     //     Referenced variables are assigned in following statements:
     //         v1 := 123
-    //         v2 := "wrong"
-    //     Referenced variables:
+    //         v3 := v2[0]
+    //     Related variables:
     //         v1 -> (int)123
-    //         v2 -> (string)wrong
+    //         v2 -> ([]string)[wrong right]
+    //         v3 -> (string)wrong
 }
 ```

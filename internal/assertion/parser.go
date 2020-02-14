@@ -419,6 +419,7 @@ func findAssignments(fset *token.FileSet, decl *ast.FuncDecl, line int, arg ast.
 		case *ast.AssignStmt:
 			stmts = append(stmts, assign)
 			relatedExprs = append(relatedExprs, assign.Lhs...)
+			relatedExprs = append(relatedExprs, assign.Rhs...)
 		case *ast.RangeStmt:
 			// For RangeStmt, only use the code like `k, v := range arr`.
 			stmt := *assign
