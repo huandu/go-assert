@@ -126,7 +126,7 @@ func AssertEqual(t *testing.T, v1, v2 interface{}, trigger *Trigger) {
 		msg = "The type of following expressions should be the same."
 	}
 
-	t.Fatalf("\n%v:%v: Assertion failed:\n%v\n%v\n[1] %v%v\n[2] %v%v\nValues:\n[1] -> %v\n[2] -> %v%v",
+	t.Fatalf("\n%v:%v: Assertion failed:\n    %v\n%v\n[1] %v%v\n[2] %v%v\nValues:\n[1] -> %v\n[2] -> %v%v",
 		f.Filename, f.Line, indentCode(info.Source, 4), msg,
 		indentCode(info.Args[0], 4), indentAssignments(info.Assignments[0], 4),
 		indentCode(info.Args[1], 4), indentAssignments(info.Assignments[1], 4),
@@ -159,7 +159,7 @@ func AssertNotEqual(t *testing.T, v1, v2 interface{}, trigger *Trigger) {
 	}
 
 	info := f.Info()
-	t.Fatalf("\n%v:%v: Assertion failed:\n%v\nThe value of following expression should not equal.\n[1] %v%v\n[2] %v%v%v",
+	t.Fatalf("\n%v:%v: Assertion failed:\n    %v\nThe value of following expression should not equal.\n[1] %v%v\n[2] %v%v%v",
 		f.Filename, f.Line, indentCode(info.Source, 4),
 		indentCode(info.Args[0], 4), indentAssignments(info.Assignments[0], 4),
 		indentCode(info.Args[1], 4), indentAssignments(info.Assignments[1], 4),
