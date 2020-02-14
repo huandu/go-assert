@@ -9,12 +9,17 @@ import (
 	"go/token"
 	"os"
 	"path"
-	"reflect"
 	"runtime"
 	"sort"
 	"strings"
 	"sync"
 )
+
+// Parser represents a source file parser.
+type Parser struct {
+	// Excluded call exprs should be excluded when finding assignments.
+	Excluded []*ast.CallExpr
+}
 
 // Info represents code analysis information of an assertion function.
 type Info struct {
@@ -51,67 +56,13 @@ type Func struct {
 	Line     int
 }
 
-// ParseFalseKind checks expr value and return false when expr is `false`, 0, `nil` and empty string.
-// Otherwise, return true.
-func ParseFalseKind(expr interface{}) FalseKind {
-	if expr == nil {
-		return Nil
-	}
-
-	if v, ok := expr.(bool); ok && !v {
-		return False
-	}
-
-	v := reflect.ValueOf(expr)
-
-	for {
-		switch v.Kind() {
-		case reflect.Invalid:
-			return Nil
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			if n := v.Int(); n == 0 {
-				return Zero
-			}
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			if n := v.Uint(); n == 0 {
-				return Zero
-			}
-		case reflect.Float32, reflect.Float64:
-			if n := v.Float(); n == 0 {
-				return Zero
-			}
-		case reflect.Complex64, reflect.Complex128:
-			if n := v.Complex(); n == 0 {
-				return Zero
-			}
-		case reflect.String:
-			if s := v.String(); s == "" {
-				return EmptyString
-			}
-		case reflect.Interface:
-			if v.IsNil() {
-				return Nil
-			}
-
-			v = v.Elem()
-			continue
-		case reflect.Ptr, reflect.Chan, reflect.Func, reflect.Slice:
-			if v.IsNil() {
-				return Nil
-			}
-		}
-
-		return Positive
-	}
-}
-
 // ParseArgs parses caller's source code, finds out the right call expression by name
 // and returns the argument source AST.
 //
 // Skip is the stack frame calling an assert function. If skip is 0, the stack frame for
 // ParseArgs is selected.
 // In most cases, caller should set skip to 1 to skip ParseArgs itself.
-func ParseArgs(name string, skip int, argIndex []int) (f *Func, err error) {
+func (p *Parser) ParseArgs(name string, skip int, argIndex []int) (f *Func, err error) {
 	if len(argIndex) == 0 {
 		err = fmt.Errorf("missing argIndex")
 		return
@@ -217,9 +168,9 @@ func ParseArgs(name string, skip int, argIndex []int) (f *Func, err error) {
 	return
 }
 
-// Info returns more context related information about this f.
+// ParseInfo returns more context related information about this f.
 // See document of Info for details.
-func (f *Func) Info() (info *Info) {
+func (p *Parser) ParseInfo(f *Func) (info *Info) {
 	fset := f.FileSet
 	args := make([]string, 0, len(f.Args))
 	assignments := make([][]string, 0, len(f.Args))
@@ -227,7 +178,7 @@ func (f *Func) Info() (info *Info) {
 
 	// If args contains any arg which is an ident, find out where it's assigned.
 	for _, arg := range f.Args {
-		assigns, related := findAssignments(fset, f.Func, f.Line, arg)
+		assigns, related := findAssignments(fset, f.Func, f.Line, arg, p.Excluded)
 		args = append(args, formatNode(fset, arg))
 		assignments = append(assignments, assigns)
 		relatedVars = append(relatedVars, related...)
@@ -321,7 +272,7 @@ func formatNode(fset *token.FileSet, node ast.Node) string {
 	return buf.String()
 }
 
-func findAssignments(fset *token.FileSet, decl *ast.FuncDecl, line int, arg ast.Expr) (assignments []string, related []string) {
+func findAssignments(fset *token.FileSet, decl *ast.FuncDecl, line int, arg ast.Expr, excluded []*ast.CallExpr) (assignments []string, related []string) {
 	if decl == nil || arg == nil {
 		return
 	}
@@ -389,6 +340,12 @@ func findAssignments(fset *token.FileSet, decl *ast.FuncDecl, line int, arg ast.
 					}
 				}
 			case *ast.CallExpr:
+				for _, call := range excluded {
+					if node.Pos() == call.Pos() {
+						return false
+					}
+				}
+
 				for _, arg := range node.Args {
 					switch n := arg.(type) {
 					case *ast.UnaryExpr:

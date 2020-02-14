@@ -94,6 +94,7 @@ func TestParseArgs(t *testing.T) {
 			[]string{`c`, `i`, `args`, `prefix`, `s`},
 		},
 	}
+	p := new(Parser)
 
 	for i, c := range cases {
 		skip := i
@@ -105,8 +106,8 @@ func TestParseArgs(t *testing.T) {
 		var s interface{} = "Parse"
 		switch prefix := s.(type) { // Test init stmt in SwitchStmt.
 		case string:
-			f, err := ParseArgs(prefix+args, skip, c.ArgIndex)
-			info := f.Info()
+			f, err := p.ParseArgs(prefix+args, skip, c.ArgIndex)
+			info := p.ParseInfo(f)
 			skip = 2
 
 			assertEqual(t, err, nil)

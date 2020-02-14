@@ -18,14 +18,16 @@ import (
 type A struct {
 	*testing.T
 
-	vars map[string]interface{}
+	vars   map[string]interface{}
+	parser *assertion.Parser
 }
 
 // New creates an assertion object wraps t.
 func New(t *testing.T) *A {
 	return &A{
-		T:    t,
-		vars: make(map[string]interface{}),
+		T:      t,
+		vars:   make(map[string]interface{}),
+		parser: new(assertion.Parser),
 	}
 }
 
@@ -48,6 +50,7 @@ func New(t *testing.T) *A {
 //         x, y := 1, 2
 func (a *A) Assert(expr interface{}) {
 	assertion.Assert(a.T, expr, &assertion.Trigger{
+		Parser:   a.parser,
 		FuncName: "Assert",
 		Skip:     1,
 		Args:     []int{0},
@@ -74,6 +77,7 @@ func (a *A) Assert(expr interface{}) {
 //         open path/to/a/file: no such file or directory
 func (a *A) NilError(result ...interface{}) {
 	assertion.AssertNilError(a.T, result, &assertion.Trigger{
+		Parser:   a.parser,
 		FuncName: "NilError",
 		Skip:     1,
 		Args:     []int{-1},
@@ -102,6 +106,7 @@ func (a *A) NilError(result ...interface{}) {
 //         expected
 func (a *A) NonNilError(result ...interface{}) {
 	assertion.AssertNonNilError(a.T, result, &assertion.Trigger{
+		Parser:   a.parser,
 		FuncName: "NonNilError",
 		Skip:     1,
 		Args:     []int{-1},
@@ -130,6 +135,7 @@ func (a *A) NonNilError(result ...interface{}) {
 //     [2] -> ([]int)[1]
 func (a *A) Equal(v1, v2 interface{}) {
 	assertion.AssertEqual(a.T, v1, v2, &assertion.Trigger{
+		Parser:   a.parser,
 		FuncName: "Equal",
 		Skip:     1,
 		Args:     []int{0, 1},
@@ -155,6 +161,7 @@ func (a *A) Equal(v1, v2 interface{}) {
 //     [2] []int{1}
 func (a *A) NotEqual(v1, v2 interface{}) {
 	assertion.AssertNotEqual(a.T, v1, v2, &assertion.Trigger{
+		Parser:   a.parser,
 		FuncName: "NotEqual",
 		Skip:     1,
 		Args:     []int{0, 1},
@@ -180,7 +187,8 @@ func (a *A) NotEqual(v1, v2 interface{}) {
 //     Assertion failed:
 //         v1 == 123 && v3 == "right"
 //     Referenced variables are assigned in following statements:
-//         a.Use(&v1, &v2, &v3, &v4)
+//         v1 := 123
+//         v3 := v2[0]
 //     Related variables:
 //         v1 = (int)123
 //         v3 = (string)wrong
@@ -217,7 +225,7 @@ func (a *A) Use(args ...interface{}) {
 		return
 	}
 
-	f, err := assertion.ParseArgs("Use", 1, argIndex)
+	f, err := a.parser.ParseArgs("Use", 1, argIndex)
 
 	if err != nil {
 		return
@@ -239,4 +247,6 @@ func (a *A) Use(args ...interface{}) {
 		printer.Fprint(buf, f.FileSet, expr.X)
 		a.vars[buf.String()] = values[i]
 	}
+
+	a.parser.Excluded = append(a.parser.Excluded, f.Caller)
 }

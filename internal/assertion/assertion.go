@@ -13,24 +13,22 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
-// FalseKind is the kind of a false-equivalent value.
-type FalseKind int
-
-// Valid kinds for all false-equivalent values.
-const (
-	Positive FalseKind = iota
-	Nil
-	False
-	Zero
-	EmptyString
-)
-
 // Trigger represents the method which triggers assertion.
 type Trigger struct {
+	Parser   *Parser
 	FuncName string
 	Skip     int
 	Args     []int
 	Vars     map[string]interface{}
+}
+
+// P returns a valid parser.
+func (t *Trigger) P() *Parser {
+	if t.Parser != nil {
+		return t.Parser
+	}
+
+	return &Parser{}
 }
 
 // Assert tests expr and call `t.Fatalf` to terminate test case if expr is false-equivalent value.
@@ -41,14 +39,14 @@ func Assert(t *testing.T, expr interface{}, trigger *Trigger) {
 		return
 	}
 
-	f, err := ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
+	f, err := trigger.P().ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
 
 	if err != nil {
 		t.Fatalf("Assertion failed with an internal error: %v", err)
 		return
 	}
 
-	info := f.Info()
+	info := trigger.P().ParseInfo(f)
 	suffix := ""
 	arg := info.Args[0]
 
@@ -102,14 +100,14 @@ func AssertEqual(t *testing.T, v1, v2 interface{}, trigger *Trigger) {
 		}
 	}
 
-	f, err := ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
+	f, err := trigger.P().ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
 
 	if err != nil {
 		t.Fatalf("Assertion failed with an internal error: %v", err)
 		return
 	}
 
-	info := f.Info()
+	info := trigger.P().ParseInfo(f)
 	config := &spew.ConfigState{
 		DisableMethods:          true,
 		DisablePointerMethods:   true,
@@ -151,14 +149,14 @@ func AssertNotEqual(t *testing.T, v1, v2 interface{}, trigger *Trigger) {
 		return
 	}
 
-	f, err := ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
+	f, err := trigger.P().ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
 
 	if err != nil {
 		t.Fatalf("Assertion failed with an internal error: %v", err)
 		return
 	}
 
-	info := f.Info()
+	info := trigger.P().ParseInfo(f)
 	t.Fatalf("\n%v:%v: Assertion failed:\n    %v\nThe value of following expression should not equal.\n[1] %v%v\n[2] %v%v%v",
 		f.Filename, f.Line, indentCode(info.Source, 4),
 		indentCode(info.Args[0], 4), indentAssignments(info.Assignments[0], 4),
@@ -181,14 +179,14 @@ func AssertNilError(t *testing.T, result []interface{}, trigger *Trigger) {
 		return
 	}
 
-	f, err := ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
+	f, err := trigger.P().ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
 
 	if err != nil {
 		t.Fatalf("Assertion failed with an internal error: %v", err)
 		return
 	}
 
-	info := f.Info()
+	info := trigger.P().ParseInfo(f)
 	t.Fatalf("\n%v:%v: Assertion failed:\nFollowing expression should return a nil error.\n    %v%v\nThe error is:\n    %v%v",
 		f.Filename, f.Line,
 		indentCode(info.Args[0], 4), indentAssignments(info.Assignments[0], 4),
@@ -216,14 +214,14 @@ func AssertNonNilError(t *testing.T, result []interface{}, trigger *Trigger) {
 		}
 	}
 
-	f, err := ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
+	f, err := trigger.P().ParseArgs(trigger.FuncName, trigger.Skip+1, trigger.Args)
 
 	if err != nil {
 		t.Fatalf("Assertion failed with an internal error: %v", err)
 		return
 	}
 
-	info := f.Info()
+	info := trigger.P().ParseInfo(f)
 	t.Fatalf("\n%v:%v: Assertion failed:\nFollowing expression should return an error.\n    %v%v%v",
 		f.Filename, f.Line,
 		indentCode(info.Args[0], 4), indentAssignments(info.Assignments[0], 4),
