@@ -299,7 +299,7 @@ func formatRelatedVars(related []string, vars map[string]interface{}) string {
 
 			if v, ok := vars[n]; ok {
 				values = append(values, v)
-				names = append(names, name)
+				names = append(names, n)
 				fields = append(fields, name[len(n)+1:])
 				break
 			}
@@ -322,6 +322,7 @@ func formatRelatedVars(related []string, vars map[string]interface{}) string {
 	}
 	lines := make([]string, 0, len(values)+1)
 	lines = append(lines, "\nRelated variables:")
+	visitedNames := map[string]struct{}{}
 
 	for i, v := range values {
 		val := reflect.ValueOf(v)
@@ -331,13 +332,24 @@ func formatRelatedVars(related []string, vars map[string]interface{}) string {
 		}
 
 		val = val.Elem()
-		v, ok := getValue(fields[i], val)
+		field, v, ok := getValue(fields[i], val)
 
 		if !ok {
 			continue
 		}
 
-		lines = append(lines, config.Sprintf("    "+names[i]+" = %#v", v))
+		name := names[i]
+
+		if field != "" {
+			name += "." + field
+		}
+
+		if _, ok := visitedNames[name]; ok {
+			continue
+		}
+
+		lines = append(lines, config.Sprintf("    "+name+" = %#v", v))
+		visitedNames[name] = struct{}{}
 	}
 
 	// No valid related variables.
@@ -348,34 +360,55 @@ func formatRelatedVars(related []string, vars map[string]interface{}) string {
 	return strings.Join(lines, "\n")
 }
 
-func getValue(field string, v reflect.Value) (value interface{}, ok bool) {
+func getValue(field string, v reflect.Value) (actualField string, value interface{}, ok bool) {
 	if field == "" {
 		value = v.Interface()
 		ok = true
 		return
 	}
 
-	val := reflect.ValueOf(v)
-
-	for val.Kind() == reflect.Ptr || val.Kind() == reflect.Interface {
-		val = val.Elem()
+	for v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
+		v = v.Elem()
 	}
 
-	if !val.IsValid() {
+	if !v.IsValid() {
 		return
 	}
 
-	if val.Kind() != reflect.Struct {
+	if v.Kind() != reflect.Struct {
+		value = v.Interface()
+		ok = true
 		return
 	}
 
 	parts := strings.Split(field, ".")
-	val = val.FieldByName(parts[0])
+	f := v.FieldByName(parts[0])
 
-	if !val.IsValid() {
+	if !f.IsValid() {
+		value = v.Interface()
+		ok = true
 		return
 	}
 
-	value, ok = getValue(strings.Join(parts[1:], "."), val)
+	// If f is not printable, use f's parent.
+	switch f.Kind() {
+	case reflect.Func, reflect.Chan:
+		actualField = parts[0]
+		value = v.Interface()
+		ok = true
+		return
+	}
+
+	actual, value, ok := getValue(strings.Join(parts[1:], "."), f)
+
+	if !ok {
+		return
+	}
+
+	actualField = parts[0]
+
+	if actual != "" {
+		actualField += "." + actual
+	}
 	return
 }
