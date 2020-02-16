@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"unsafe"
 
 	"github.com/davecgh/go-spew/spew"
 )
@@ -362,7 +363,7 @@ func formatRelatedVars(related []string, vars map[string]interface{}) string {
 
 func getValue(field string, v reflect.Value) (actualField string, value interface{}, ok bool) {
 	if field == "" {
-		value = v.Interface()
+		value = getValueInterface(v)
 		ok = true
 		return
 	}
@@ -376,7 +377,7 @@ func getValue(field string, v reflect.Value) (actualField string, value interfac
 	}
 
 	if v.Kind() != reflect.Struct {
-		value = v.Interface()
+		value = getValueInterface(v)
 		ok = true
 		return
 	}
@@ -385,16 +386,7 @@ func getValue(field string, v reflect.Value) (actualField string, value interfac
 	f := v.FieldByName(parts[0])
 
 	if !f.IsValid() {
-		value = v.Interface()
-		ok = true
-		return
-	}
-
-	// If f is not printable, use f's parent.
-	switch f.Kind() {
-	case reflect.Func, reflect.Chan:
-		actualField = parts[0]
-		value = v.Interface()
+		value = getValueInterface(v)
 		ok = true
 		return
 	}
@@ -411,4 +403,123 @@ func getValue(field string, v reflect.Value) (actualField string, value interfac
 		actualField += "." + actual
 	}
 	return
+}
+
+func getValueInterface(v reflect.Value) interface{} {
+	if v.CanInterface() {
+		return v.Interface()
+	}
+
+	// src is an unexported field value. Copy its value.
+	switch v.Kind() {
+	case reflect.Bool:
+		return v.Bool()
+
+	case reflect.Int:
+		return int(v.Int())
+	case reflect.Int8:
+		return int8(v.Int())
+	case reflect.Int16:
+		return int16(v.Int())
+	case reflect.Int32:
+		return int32(v.Int())
+	case reflect.Int64:
+		return v.Int()
+
+	case reflect.Uint:
+		return uint(v.Uint())
+	case reflect.Uint8:
+		return uint8(v.Uint())
+	case reflect.Uint16:
+		return uint16(v.Uint())
+	case reflect.Uint32:
+		return uint32(v.Uint())
+	case reflect.Uint64:
+		return v.Uint()
+	case reflect.Uintptr:
+		return uintptr(v.Uint())
+
+	case reflect.Float32:
+		return float32(v.Float())
+	case reflect.Float64:
+		return v.Float()
+
+	case reflect.Complex64:
+		return complex64(v.Complex())
+	case reflect.Complex128:
+		return v.Complex()
+
+	case reflect.Array:
+		arr := reflect.New(v.Type()).Elem()
+		num := v.Len()
+
+		for i := 0; i < num; i++ {
+			arr.Index(i).Set(reflect.ValueOf(getValueInterface(v.Index(i))))
+		}
+
+		return arr.Interface()
+
+	case reflect.Chan:
+		ch := reflect.MakeChan(v.Type(), v.Cap())
+		return ch.Interface()
+
+	case reflect.Func:
+		// src.Pointer is the PC address of a func.
+		pc := reflect.New(reflect.TypeOf(uintptr(0)))
+		pc.Elem().SetUint(uint64(v.Pointer()))
+
+		fn := reflect.New(v.Type())
+		*(*uintptr)(unsafe.Pointer(fn.Pointer())) = pc.Pointer()
+		return fn.Elem().Interface()
+
+	case reflect.Interface:
+		iface := reflect.New(v.Type())
+		*(*[2]uintptr)(unsafe.Pointer(iface.Pointer())) = v.InterfaceData()
+		return iface.Elem().Interface()
+
+	case reflect.Map:
+		m := reflect.MakeMap(v.Type())
+		keys := v.MapKeys()
+
+		for _, key := range keys {
+			m.SetMapIndex(key, reflect.ValueOf(getValueInterface(v.MapIndex(key))))
+		}
+
+		return m.Interface()
+
+	case reflect.Ptr:
+		ptr := reflect.New(v.Type())
+		*(*uintptr)(unsafe.Pointer(ptr.Pointer())) = v.Pointer()
+		return ptr.Elem().Interface()
+
+	case reflect.Slice:
+		slice := reflect.MakeSlice(v.Type(), v.Len(), v.Cap())
+		num := v.Len()
+
+		for i := 0; i < num; i++ {
+			slice.Index(i).Set(reflect.ValueOf(getValueInterface(v.Index(i))))
+		}
+
+		return slice.Interface()
+
+	case reflect.String:
+		return v.String()
+
+	case reflect.Struct:
+		st := reflect.New(v.Type()).Elem()
+		num := v.NumField()
+
+		for i := 0; i < num; i++ {
+			st.Field(i).Set(reflect.ValueOf(getValueInterface(v.Field(i))))
+		}
+
+		return st.Interface()
+
+	case reflect.UnsafePointer:
+		ptr := reflect.New(v.Type())
+		*(*uintptr)(unsafe.Pointer(ptr.Pointer())) = v.Pointer()
+		return ptr.Elem().Interface()
+	}
+
+	panic("go-assert: never be here")
 }
