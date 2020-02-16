@@ -19,11 +19,11 @@ import (
 //
 // Sample code.
 //
-//     import . "github.com/huandu/go-assert"
+//     import "github.com/huandu/go-assert"
 //
 //     func TestSomething(t *testing.T) {
 //         a, b := 1, 2
-//         Assert(t, a > b)
+//         assert.Assert(t, a > b)
 //     }
 //
 // Output:
@@ -40,20 +40,76 @@ func Assert(t *testing.T, expr interface{}) {
 	})
 }
 
-// AssertEqual uses `reflect.DeepEqual` to test v1 and v2 equality.
+// Equal uses `reflect.DeepEqual` to test v1 and v2 equality.
 //
 // Sample code.
 //
-//     import . "github.com/huandu/go-assert"
+//     import "github.com/huandu/go-assert"
 //
 //     func TestSomething(t *testing.T) {
-//         AssertEqual(t, []int{1,2}, []int{1})
+//         assert.Equal(t, []int{1,2}, []int{1})
 //     }
 //
 // Output:
 //
 //     Assertion failed:
-//         AssertEqual(t, []int{1, 2}, []int{1})
+//         assert.Equal(t, []int{1, 2}, []int{1})
+//     The value of following expression should equal.
+//     [1] []int{1, 2}
+//     [2] []int{1}
+//     Values:
+//     [1] -> ([]int)[1 2]
+//     [2] -> ([]int)[1]
+func Equal(t *testing.T, v1, v2 interface{}) {
+	assertion.AssertEqual(t, v1, v2, &assertion.Trigger{
+		FuncName: "Equal",
+		Skip:     1,
+		Args:     []int{1, 2},
+	})
+}
+
+// NotEqual uses `reflect.DeepEqual` to test v1 and v2 equality.
+//
+// Sample code.
+//
+//     import "github.com/huandu/go-assert"
+//
+//     func TestSomething(t *testing.T) {
+//         assert.NotEqual(t, []int{1}, []int{1})
+//     }
+//
+// Output:
+//
+//     Assertion failed:
+//         assert.NotEqual(t, []int{1}, []int{1})
+//     The value of following expression should not equal.
+//     [1] []int{1}
+//     [2] []int{1}
+func NotEqual(t *testing.T, v1, v2 interface{}) {
+	assertion.AssertNotEqual(t, v1, v2, &assertion.Trigger{
+		FuncName: "NotEqual",
+		Skip:     1,
+		Args:     []int{1, 2},
+	})
+}
+
+// AssertEqual uses `reflect.DeepEqual` to test v1 and v2 equality.
+//
+// Note: as golint dislike the name of this function,
+// it will be removed in the future. Use Equal instead.
+//
+// Sample code.
+//
+//     import "github.com/huandu/go-assert"
+//
+//     func TestSomething(t *testing.T) {
+//         assert.AssertEqual(t, []int{1,2}, []int{1})
+//     }
+//
+// Output:
+//
+//     Assertion failed:
+//         assert.AssertEqual(t, []int{1, 2}, []int{1})
 //     The value of following expression should equal.
 //     [1] []int{1, 2}
 //     [2] []int{1}
@@ -70,18 +126,21 @@ func AssertEqual(t *testing.T, v1, v2 interface{}) {
 
 // AssertNotEqual uses `reflect.DeepEqual` to test v1 and v2 equality.
 //
+// Note: as golint dislike the name of this function,
+// it will be removed in the future. Use NotEqual instead.
+//
 // Sample code.
 //
-//     import . "github.com/huandu/go-assert"
+//     import "github.com/huandu/go-assert"
 //
 //     func TestSomething(t *testing.T) {
-//         AssertNotEqual(t, []int{1}, []int{1})
+//         assert.AssertNotEqual(t, []int{1}, []int{1})
 //     }
 //
 // Output:
 //
 //     Assertion failed:
-//         AssertNotEqual(t, []int{1}, []int{1})
+//         assert.AssertNotEqual(t, []int{1}, []int{1})
 //     The value of following expression should not equal.
 //     [1] []int{1}
 //     [2] []int{1}

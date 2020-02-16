@@ -12,11 +12,11 @@ func TestSample_Assert(t *testing.T) {
 }
 
 func TestSample_AssertEqual(t *testing.T) {
-	AssertEqual(t, []int{1, 2}, []int{1})
+	Equal(t, []int{1, 2}, []int{1})
 }
 
 func TestSample_AssertNotEqual(t *testing.T) {
-	AssertNotEqual(t, []int{1}, []int{1})
+	NotEqual(t, []int{1}, []int{1})
 }
 
 func TestSample_A_Assert(t *testing.T) {

@@ -9,11 +9,11 @@ With this package, we can focus on writing test code without worrying about how 
 Here is a quick sample.
 
 ```go
-import . "github.com/huandu/go-assert"
+import "github.com/huandu/go-assert"
 
 func TestSomething(t *testing.T) {
     str := Foo(42)
-    Assert(t, str == "expected")
+    assert.Assert(t, str == "expected")
 
     // This case fails with following message.
     //
@@ -36,14 +36,14 @@ Current stable version is `v1.*`. Old versions tagged by `v0.*` are obsoleted.
 
 ### Assertion methods ###
 
-If we just want to use functions like `Assert`, `AssertEqual` or `AssertNotEqual`, it's recommended to import this package as `.`.
+If we just want to use functions like `Assert`, `Equal` or `NotEqual`, it's recommended to import this package as `.`.
 
 ```go
-import . "github.com/huandu/go-assert"
+import "github.com/huandu/go-assert"
 
 func TestSomething(t *testing.T) {
     a, b := 1, 2
-    Assert(t, a > b)
+    assert.Assert(t, a > b)
     
     // This case fails with message:
     //     Assertion failed:
@@ -51,7 +51,7 @@ func TestSomething(t *testing.T) {
 }
 
 func TestAssertEquality(t *testing.T) {
-    AssertEqual(t, map[string]int{
+    assert.Equal(t, map[string]int{
         "foo": 1,
         "bar": -2,
     }, map[string]int{

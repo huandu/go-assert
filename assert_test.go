@@ -59,7 +59,7 @@ func TestAssertNonNilErrorFunctionCall(t *testing.T) {
 }
 
 func TestAssertEquality(t *testing.T) {
-	AssertEqual(t, map[string]int{
+	Equal(t, map[string]int{
 		"foo": 1,
 		"bar": -2,
 	}, map[string]int{
@@ -67,7 +67,7 @@ func TestAssertEquality(t *testing.T) {
 		"foo": 1,
 	})
 
-	AssertEqual(t, map[string]int{
+	Equal(t, map[string]int{
 		"foo": 1,
 		"bar": -2,
 	}, map[string]int{
@@ -85,11 +85,11 @@ func TestAssertEqualityTypeMismatch(t *testing.T) {
 		Foo string
 		Bar int
 	}{"should pass", 1}
-	AssertEqual(t, v1, v2)
+	Equal(t, v1, v2)
 
 	v3 := []int{1, 2, 3}
 	v4 := []int64{1, 2, 3}
-	AssertEqual(t, v3, v4)
+	Equal(t, v3, v4)
 }
 
 func TestAssertEqualityWithAssertion(t *testing.T) {
@@ -137,11 +137,11 @@ func TestAssertNotEqual(t *testing.T) {
 		Bar int
 		Foo string
 	}{1, "should pass"}
-	AssertNotEqual(t, v1, v2)
+	NotEqual(t, v1, v2)
 
 	v3 := []int{1, 2, 3}
 	v4 := []int{1, 2, 3}
-	AssertNotEqual(t, v3, v4)
+	NotEqual(t, v3, v4)
 }
 
 func TestAssertNotEqualWithAssertion(t *testing.T) {
