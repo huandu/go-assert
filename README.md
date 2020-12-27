@@ -1,6 +1,6 @@
 # Package `assert` - Magic assert macros for Go
 
-[![Build Status](https://travis-ci.com/huandu/go-assert.svg?branch=master)](https://travis-ci.com/huandu/go-assert)
+![Go](https://github.com/huandu/go-assert/workflows/Go/badge.svg)
 [![Go Doc](https://godoc.org/github.com/huandu/go-assert?status.svg)](https://pkg.go.dev/github.com/huandu/go-assert)
 
 Package `assert` provides developer a way to assert expression and output useful contextual information automatically when a case fails.
