@@ -510,7 +510,11 @@ func getValueInterface(v reflect.Value) interface{} {
 		num := v.NumField()
 
 		for i := 0; i < num; i++ {
-			st.Field(i).Set(reflect.ValueOf(getValueInterface(v.Field(i))))
+			field := st.Field(i)
+
+			if field.CanSet() {
+				field.Set(reflect.ValueOf(getValueInterface(v.Field(i))))
+			}
 		}
 
 		return st.Interface()

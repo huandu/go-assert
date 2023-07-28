@@ -522,7 +522,7 @@ func IsVar(expr ast.Expr) bool {
 
 		for {
 			if sel, ok := x.(*ast.SelectorExpr); ok {
-				x = sel
+				x = sel.X
 			} else {
 				break
 			}
